@@ -1,0 +1,22 @@
+Revision history for PDL-Stats
+
+0.2.0   07/21/2009
+        kmeans threads! ss/ms bug fix. more tests on kmeans added.
+
+0.1.3   07/17/2009
+        quick-start for non-PDL people in Stats.pm pod
+        ols_t uses double internally. GLM pod update
+        r2_change threads (switched to use ols_t instead of ols)
+        get_data which_id moved to Basic from GLM
+        tests grouped in PDL-Stats/t except for PDL::GSL::CDF
+
+0.1.2   07/15/2009
+        Cleaned up some versioning stuff in Stats.pm
+        GLM::get_data TYPE default to double. MISSN handling update; set to BAD by default.
+        Case insensitive option passing.
+
+0.1.1   07/14/2009
+        Fixed PDL::Stats::GLM::ols b_p value for b_t < 0.
+
+0.1.0   07/13/2009
+        First version, released on an unsuspecting world.

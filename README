@@ -1,0 +1,57 @@
+PDL-Stats
+
+This is a collection of statistics modules in Perl Data Language, with a quick-start guide for non-PDL people.
+
+They make perldl--the simple shell for PDL--work like a teenie weenie R, but with PDL threading--"the fast (and automagic) vectorised iteration of 'elementary operations' over arbitrary slices of multidimensional data"--on procedures including t-test, ordinary least squares regression, and kmeans.
+
+Of course, they also work in perl scripts.
+
+VERSION
+
+0.2.0
+
+DEPENDENCIES
+
+PDL
+    Perl Data Language. Preferably installed with a Fortran compiler. A few methods (logistic regression and all plotting methods) will only work with a Fortran compiler and some methods (ordinary least squares regression and pca) work much faster with a Fortran compiler.
+
+GSL
+    GNU Scientific Library. This is required by PDL::Stats::Distr and PDL::GSL::CDF, and provides p-values for PDL::Stats::GLM.
+
+INSTALLATION
+
+To install all included modules, run the following commands in the current dir:
+
+	perl Makefile.PL
+	make
+	make test
+	make install
+
+SUPPORT AND DOCUMENTATION
+
+After installing, you can find documentation for the modules with the
+perldoc command.
+
+    perldoc PDL::Stats
+    perldoc PDL::Stats::Basic
+    perldoc PDL::Stats::Distr
+    perldoc PDL::Stats::GLM
+    perldoc PDL::Stats::Kmeans
+    perldoc PDL::GSL::CDF
+
+You can also look for information at:
+
+    Search CPAN
+        http://search.cpan.org/dist/PDL-Stats/
+
+    Sourceforge
+        http://pdl-stats.sourceforge.net
+
+
+COPYRIGHT AND LICENCE
+
+Copyright (C) 2009 Maggie J. Xiong  <maggiexyz users.sourceforge.net>
+
+This program is free software; you can redistribute it and/or modify it
+under the same terms as Perl itself.
+
