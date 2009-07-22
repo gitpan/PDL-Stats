@@ -8,12 +8,12 @@ PDL::Stats - a collection of statistics modules in Perl Data Language, with a qu
 
 =head1 VERSION
 
-Version 0.2.0
+Version 0.2.1
 
 =cut
 
 
-$VERSION = '0.2.0';
+$VERSION = '0.2.1';
 
 
 =head1 DESCRIPTION
@@ -134,7 +134,9 @@ Got the idea? Then we can see how PDL does its magic :)
 
 =head2 Threading
 
-Another concept. PDL threading means automatically repeating the operation on extra elements or dimensions fed to a function. For a function with a signature like this
+Another concept. The first thing to know is that, threading is optional.
+
+PDL threading means automatically repeating the operation on extra elements or dimensions fed to a function. For a function with a signature like this
 
     gsl_cdf_tdist_P
 
@@ -244,6 +246,8 @@ EOD
 }
 
 =head1 AUTHOR
+
+~~~~~~~~~~~~ ~~~~~ ~~~~~~~~ ~~~~~ ~~~ `` ><(((">
 
 Copyright (C) 2009 Maggie J. Xiong <maggiexyz users.sourceforge.net>
 

@@ -1,7 +1,26 @@
-#!/usr/bin/perl
-pp_add_exported('', 'random_cluster', 'iv_cluster');
 
-pp_addpm({At=>'Top'}, <<'EOD');
+#
+# GENERATED WITH PDL::PP! Don't modify!
+#
+package PDL::Stats::Kmeans;
+
+@EXPORT_OK  = qw(  random_cluster iv_cluster PDL::PP _random_cluster PDL::PP assign PDL::PP centroid );
+%EXPORT_TAGS = (Func=>[@EXPORT_OK]);
+
+use PDL::Core;
+use PDL::Exporter;
+use DynaLoader;
+
+
+
+   
+   @ISA    = ( 'PDL::Exporter','DynaLoader' );
+   push @PDL::Core::PP, __PACKAGE__;
+   bootstrap PDL::Stats::Kmeans ;
+
+
+
+
 
 use Carp;
 use PDL::LiteF;
@@ -64,18 +83,21 @@ plot the clusters if there are only 2 vars
 
 =cut
 
-EOD
-
-pp_addhdr('
-#include <math.h>
-#include <stdlib.h>
-#include <time.h>
-
-'
-);
 
 
-pp_addpm( <<'EOD' );
+
+
+
+
+=head1 FUNCTIONS
+
+
+
+=cut
+
+
+
+
 
 =head2 random_cluster
 
@@ -104,103 +126,22 @@ sub random_cluster {
   return $cluster;
 }
 
-EOD
 
-pp_def('_random_cluster',
-  Pars  => 'byte a(o,c); byte [o]b(o,c)',
-  Inplace   => 1,
-  GenericTypes => [U],
-  Code  => '
-if ($SIZE(c) > $SIZE(o))
-  barf("more cluster than obs!");
-/* threading w time only srand produces identical clusters */
-int r;
-srand( time( NULL ) + r++);
-int nc = $SIZE(c);
-loop (o) %{
-  int cl = rand() % nc;
-  loop (c) %{
-    $b() = (c == cl)? 1 : 0;
-  %}
-%}
 
-  ',
 
-  Doc   => undef,
 
-);
+*_random_cluster = \&PDL::_random_cluster;
 
-pp_def('assign',
-  Pars  => 'data(o,v); centroid(c,v); byte [o]cluster(o,c)',
-  GenericTypes => [F,D],
-  HandleBad => 1,
-  Code  => '
 
-$GENERIC(centroid) ssc, ssmin;
-int cl = 0;
 
-loop (o) %{
-  ssmin = -1;
-  loop (c) %{
-    ssc = 0;
-    loop (v) %{
-      ssc += pow($data() - $centroid(), 2);
-    %}
-/* notice that if multiple ssc == ssmin the 1st is taken as cluster */
-    if (ssmin < 0 || ssmin > ssc) {
-      cl = c;
-      ssmin = ssc;
-    }
-  %}
-  loop (c) %{
-    $cluster() = (c == cl)? 1 : 0;
-  %}
-%}
 
-  ',
-  BadCode  => '
+=head2 assign
 
-$GENERIC(centroid) ssc, ssmin;
-long cl, nvc;
-cl = 0;
+=for sig
 
-loop (o) %{
-  ssmin = -1;
-  loop (c) %{
-    ssc = 0;
-    nvc = 0;
-    loop (v) %{
-      if ($ISGOOD( $data() ) && $ISGOOD( $centroid() )) {
-        ssc += pow($data() - $centroid(), 2);
-        nvc ++;
-      }
-    %}
-    if (nvc) {
-      ssc /= nvc;
-    }
-    else {
-/* taking advantage of the fact that 1st valid ssmin takes precedence */
-/* so ssc has no effect if there is already ssmin. or it is -1 */
-      ssc = ssmin;
-    }
-/* notice that if multiple ssc == ssmin the 1st is taken as cluster */
-    if (ssmin < 0 || ssmin > ssc) {
-      cl = c;
-      ssmin = ssc;
-    }
-  %}
-  loop (c) %{
-    if (ssmin >= 0) {
-      $cluster() = (c == cl)? 1 : 0;
-    }
-    else {
-      $SETBAD($cluster());
-    }
-  %}
-%}
+  Signature: (data(o,v); centroid(c,v); byte [o]cluster(o,c))
 
-  ',
-  Doc   => '
+
 
 =for ref
 
@@ -231,82 +172,33 @@ takes data pdl dim [obs x var] and centroid pdl dim [cluster x var] and returns 
      [1 1 1 0]    # cluster 0 membership
      [0 0 0 1]    # cluster 1 membership
     ]
-  ',
+  
 
-);
+=for bad
 
-pp_def('centroid',
-  Pars  => 'data(o,v); cluster(o,c); float+ [o]m(c,v); float+ [o]ss(c,v)',
-  GenericTypes => [F,D],
-  HandleBad => 1,
-  Code  => '
-$GENERIC(m) s[ $SIZE(c) ][ $SIZE(v) ], s2[ $SIZE(c) ][ $SIZE(v) ];
-long n[ $SIZE(c) ];
+assign does handle bad values.
+It will set the bad-value flag of all output piddles if the flag is set for any of the input piddles.
 
-loop (c) %{
-  loop (v) %{
-    s[c][v]  = 0.0;
-    s2[c][v] = 0.0;
-  %}
-  n[c] = 0;
-  loop (o) %{
-    if ($cluster()) {
-      n[c] ++;
-      loop (v) %{
-        s[c][v]  += $data();
-        s2[c][v] += pow($data(), 2);
-      }
-    %}
-  %}
 
-  if (n[c]) {
-    loop (v) %{
-      $m()  = s[c][v] / n[c];
-      $ss() = s2[c][v] - pow(s[c][v] / n[c], 2) * n[c];
-    %}
-  }
-  else {
-    barf("please make sure there is no empty cluster!");
-  }
-%}
+=cut
 
-  ',
-  BadCode  => '
-$GENERIC(m) s[ $SIZE(c) ][ $SIZE(v) ], s2[ $SIZE(c) ][ $SIZE(v) ];
-long n[ $SIZE(c) ][ $SIZE(v) ];
 
-loop (c) %{
-  loop (v) %{
-    s[c][v]  = 0.0;
-    s2[c][v] = 0.0;
-    n[c][v]  = 0;
-  %}
-  loop (o) %{
-    if ($ISGOOD($cluster()) && $cluster()) {
-      loop (v) %{
-        if ($ISGOOD( $data() )) {
-          s[c][v]  += $data();
-          s2[c][v] += pow($data(), 2);
-          n[c][v]  ++;
-        }
-      }
-    %}
-  %}
 
-  loop (v) %{
-    if (n[c][v]) {
-      $m()  = s[c][v] / n[c][v];
-      $ss() = s2[c][v] / n[c][v] - pow(s[c][v] / n[c][v], 2);
-    }
-    else {
-      $SETBAD($m());
-      $SETBAD($ss());
-    }
-  %}
-%}
 
-  ',
-  Doc   => '
+
+
+*assign = \&PDL::assign;
+
+
+
+
+=head2 centroid
+
+=for sig
+
+  Signature: (data(o,v); cluster(o,c); float+ [o]m(c,v); float+ [o]ss(c,v))
+
+
 =for ref
 
 takes data dim [obs x var] and mask dim [obs x cluster] and returns average value and ss (ms when data contains bad values) dim [cluster x var] for data where mask = 1. multiple cluster membership for an obs is fine but quits if run into empty cluster ie no qualified element in a mask.
@@ -347,11 +239,24 @@ takes data dim [obs x var] and mask dim [obs x cluster] and returns average valu
      [17.5    5]
     ]
 
-  ',
+  
 
-);
+=for bad
 
-pp_addpm(<<'EOD');
+centroid does handle bad values.
+It will set the bad-value flag of all output piddles if the flag is set for any of the input piddles.
+
+
+=cut
+
+
+
+
+
+
+*centroid = \&PDL::centroid;
+
+
 
 =head2 kmeans
 
@@ -646,7 +551,14 @@ All rights reserved. There is no warranty. You are allowed to redistribute this 
 
 =cut
 
-EOD
 
 
-pp_done();
+;
+
+
+
+# Exit with OK status
+
+1;
+
+		   

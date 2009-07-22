@@ -8,7 +8,7 @@ Of course, they also work in perl scripts.
 
 VERSION
 
-0.2.0
+0.2.1
 
 DEPENDENCIES
 
@@ -49,9 +49,8 @@ You can also look for information at:
 
 
 COPYRIGHT AND LICENCE
+~~~~~~~~~~~~ ~~~~~ ~~~~~~~~ ~~~~~ ~~~ `` ><(((">
 
 Copyright (C) 2009 Maggie J. Xiong  <maggiexyz users.sourceforge.net>
 
-This program is free software; you can redistribute it and/or modify it
-under the same terms as Perl itself.
-
+All rights reserved. There is no warranty. You are allowed to redistribute this software / documentation as described in the file COPYING in the PDL distribution.

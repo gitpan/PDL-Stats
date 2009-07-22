@@ -5,7 +5,7 @@ use warnings;
 use Test::More;
 
 BEGIN {
-    plan tests => 12;
+    plan tests => 11;
       # 1-2
     use_ok( 'PDL::Stats::Basic' );
     use_ok( 'PDL::Stats::Kmeans' );
@@ -81,7 +81,7 @@ is(tapprox( t_kmeans(), 0 ), 1);
 sub t_kmeans {
   my $data = sequence 7, 3;
   $data(1, ) .= 0;
-  my %m = $data->kmeans({NCLUS=>2, V=>0});
+  my %m = $data->kmeans({NCLUS=>2, NTRY=>10, V=>0});
   return sum( $m{centroid}->sumover - pdl qw(3.3333333  10.333333  17.333333) );
 }
 
@@ -91,21 +91,24 @@ sub t_kmeans_4d {
   $data(1, ) .= 0;
   $data(0,1,0, ) .= 0;
   $data->where($data == 42) .= 0;
-  my %m = $data->kmeans( {nclus=>[2,1,1], v=>0} );
+  my %m = $data->kmeans( {nclus=>[2,1,1], ntry=>10, v=>0} );
 
   my %a = (
     'R2'  => pdl( qw( 0.74223245 0.97386667 0.84172845 0.99499377 ) ),
-    'n'   => pdl( [5,2], [1,6], [5,2], [1,6] ),
     'ss_sum'  => pdl (
+[
  [ qw(        10         10        108 )],
  [ qw( 23.333333  23.333333  23.333333 )],
+],
+[
  [ qw(        10         10       1578 )],
  [ qw( 23.333333  23.333333  23.333333 )],
+]
            ),
   );
 
+    # 9-10
   is(tapprox( sum( $m{R2} - $a{R2} ), 0 ), 1);
-  is(tapprox( sum( $m{n}  - $a{n}  ), 0 ), 1);
   is(tapprox( sum( $m{ss}->sumover - $a{ss_sum} ), 0, 1e-3 ), 1);
 }
 
@@ -113,6 +116,6 @@ is(tapprox( t_kmeans_bad(), 0 ), 1);
 sub t_kmeans_bad {
   my $data = sequence 7, 3;
   $data = $data->setbadat(4,0);
-  my %m = $data->kmeans({NCLUS=>2, V=>0});
+  my %m = $data->kmeans({NCLUS=>2, NTRY=>10, V=>0});
   return sum( $m{ms}->sumover - pdl qw( 1.5  1.9166667  1.9166667 ) );
 }

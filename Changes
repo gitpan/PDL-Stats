@@ -1,5 +1,8 @@
 Revision history for PDL-Stats
 
+0.2.1   07/22/2009
+        kmeans 4d fix. added pms dir for cpan pod parse
+
 0.2.0   07/21/2009
         kmeans threads! ss/ms bug fix. more tests on kmeans added.
 
