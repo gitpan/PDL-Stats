@@ -5,7 +5,7 @@ use warnings;
 use Test::More;
 
 BEGIN {
-    plan tests => 11;
+    plan tests => 13;
       # 1-2
     use_ok( 'PDL::Stats::Basic' );
     use_ok( 'PDL::Stats::Kmeans' );
@@ -92,9 +92,14 @@ sub t_kmeans_4d {
   $data(0,1,0, ) .= 0;
   $data->where($data == 42) .= 0;
   my %m = $data->kmeans( {nclus=>[2,1,1], ntry=>10, v=>0} );
+#  print "$_\t$m{$_}\n" for (sort keys %m);
 
   my %a = (
-    'R2'  => pdl( qw( 0.74223245 0.97386667 0.84172845 0.99499377 ) ),
+    'R2'  => pdl
+(
+  [ qw(0.74223245 0.97386667) ],
+  [ qw(0.84172845 0.99499377) ],
+),
     'ss_sum'  => pdl (
 [
  [ qw(        10         10        108 )],
@@ -108,6 +113,54 @@ sub t_kmeans_4d {
   );
 
     # 9-10
+  is(tapprox( sum( $m{R2} - $a{R2} ), 0 ), 1);
+  is(tapprox( sum( $m{ss}->sumover - $a{ss_sum} ), 0, 1e-3 ), 1);
+}
+
+t_kmeans_4d_seed();
+sub t_kmeans_4d_seed {
+  my $data = sequence 7, 3, 2, 2;
+  $data(1, ) .= 0;
+  $data(0,1,0, ) .= 0;
+  $data->where($data == 42) .= 0;
+
+    # centroid intentially has one less dim than data
+  my $centroid = pdl(
+   [
+    [qw( 10  0 )],
+    [qw( 10  0 )],
+    [qw( 10  0 )],
+   ],
+   [
+    [qw( 20          0 )],
+    [qw( 30          0 )],
+    [qw( 30          0 )],
+   ],
+  );
+
+    # use dummy to match centroid dims to data dims
+  my %m = $data->kmeans( {cntrd=>$centroid->dummy(-1), v=>0} );
+#  print "$_\t$m{$_}\n" for (sort keys %m);
+
+  my %a = (
+    'R2'  => pdl
+(
+  [ qw(0.74223245 0.97386667) ],
+  [ qw(0.84172845 0.99499377) ],
+),
+    'ss_sum'  => pdl (
+[
+ [ qw(        10         10        108 )],
+ [ qw( 23.333333  23.333333  23.333333 )],
+],
+[
+ [ qw(        10         10       1578 )],
+ [ qw( 23.333333  23.333333  23.333333 )],
+]
+           ),
+  );
+
+    # 11-12
   is(tapprox( sum( $m{R2} - $a{R2} ), 0 ), 1);
   is(tapprox( sum( $m{ss}->sumover - $a{ss_sum} ), 0, 1e-3 ), 1);
 }

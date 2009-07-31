@@ -8,12 +8,12 @@ PDL::Stats - a collection of statistics modules in Perl Data Language, with a qu
 
 =head1 VERSION
 
-Version 0.2.1
+Version 0.2.2
 
 =cut
 
 
-$VERSION = '0.2.1';
+$VERSION = '0.2.2';
 
 
 =head1 DESCRIPTION

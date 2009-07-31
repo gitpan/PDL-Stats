@@ -344,7 +344,7 @@ Usage:
      [  0   2]
     ]
 
-Now, for the valiant, kmeans is threadable. Say you gathered 10 persons' ratings on 5 movies from 2 countries, so the data is dim [10,5,2], and you want to put the 10 persons from each country into 3 clusters, just specify NCLUS => [3,1], and there you have it. The key is for NCLUS to include $data->ndims - 1 numbers. The 1 in [3,1] turns into a dummy dim, so the 3-cluster operation is repeated on both countries. See stats_kmeans.t for an example w 4D data.
+Now, for the valiant, kmeans is threadable. Say you gathered 10 persons' ratings on 5 movies from 2 countries, so the data is dim [10,5,2], and you want to put the 10 persons from each country into 3 clusters, just specify NCLUS => [3,1], and there you have it. The key is for NCLUS to include $data->ndims - 1 numbers. The 1 in [3,1] turns into a dummy dim, so the 3-cluster operation is repeated on both countries. Similarly, when seeding, CNTRD needs to have dims that match the data dims. See stats_kmeans.t for examples w 4D data.
 
 *With bad value, R2 is based on average of variances instead of sum squared error. What's minimized is the average variance across clusters as compared to the original variance with all obs in one cluster. R2 in this case does not have the usual meaning of proportion of variance accounted for, but it does serve the purpose of minimizing variance.
 
@@ -366,29 +366,34 @@ sub PDL::kmeans {
     R2CRT      => .001,
   );
   $opt    and $opt{uc $_} = $opt->{$_} for (keys %$opt);
-  $opt{CNTRD}->nelem and $opt{NTRY} = 1;
+  if ($opt{CNTRD}->nelem) {
+    $opt{NTRY}  = 1;
+    $opt{NSEED} = $self->dim(0);
+  }
+  else {
+    $opt{NSEED} = pdl($self->dim(0), $opt{NSEED})->min;
+  }
   $opt{V} and print STDERR "$_\t=> $opt{$_}\n" for (sort keys %opt);
  
     # not avg across var, but sum up the ss across var
   my $ss_ms    = $self->badflag?  'ms' : 'ss';
-  my $ss_total = $self->badflag? $self->var->average : $self->ss->sumover;
+  my $ss_total = $self->badflag?  $self->var->average : $self->ss->sumover;
   $opt{V} and print STDERR "$ss_ms total:\t$ss_total\n";
 
   my ($cluster, $centroid, $ss_cv, $R2_this, $R2_last, $R2_change);
 
     # NTRY made into extra dim in $cluster for threading
-  my $nseed = pdl($self->dim(0), $opt{NSEED})->min;
   my @nclus = (ref $opt{NCLUS} eq 'ARRAY')? @{$opt{NCLUS}} : ($opt{NCLUS});
   $cluster
     = $opt{CNTRD}->nelem ?
-      $self->assign( $opt{CNTRD} )
-    : random_cluster($nseed, @nclus, $opt{NTRY} )
+      $self->assign( $opt{CNTRD}->dummy(-1) )  # put dummy(-1) to match NTRY
+    : random_cluster($opt{NSEED}, @nclus, $opt{NTRY} )
     ;
 
-  ($centroid, $ss_cv) = $self(0:$nseed - 1, )->centroid( $cluster );
+  ($centroid, $ss_cv) = $self(0:$opt{NSEED} - 1, )->centroid( $cluster );
   my $ss_seed = $self->badflag?
-                $self(0:$nseed-1, )->var->average
-              : $self(0:$nseed-1, )->ss->sumover
+                $self(0:$opt{NSEED}-1, )->var->average
+              : $self(0:$opt{NSEED}-1, )->ss->sumover
               ;
   $R2_this    = $self->badflag? 1 - $ss_cv->average->average / $ss_seed
               :                 1 - $ss_cv->sumover->sumover / $ss_seed
@@ -419,7 +424,7 @@ sub PDL::kmeans {
     );
 
     # xchg(-1,0) leaves it as was if single dim--unlike transpose
-  my $i_best = $R2_this->xchg(-1,0)->maximum_ind;
+  my $i_best = $R2_this->dummy(0)->xchg(-1,0)->maximum_ind;
 
   $R2_this->getndims == 1 and
     return (
@@ -455,7 +460,7 @@ $centroid->clump(2..$centroid->ndims-2)->sever->clump(3,2)->dice_axis(-1,\@i_bes
     n        => $cluster->sumover,
 
     R2       =>
-$R2_this->clump(0..$R2_this->ndims-2)->sever->clump(1,0)->dice_axis(-1,\@i_best),
+$R2_this->clump(0..$R2_this->ndims-2)->sever->clump(1,0)->dice_axis(-1,\@i_best)->reshape( @{ $shapes[2] } )->sever,
 
     $ss_ms   => 
 $ss_cv->clump(2..$ss_cv->ndims-2)->sever->clump(3,2)->dice_axis(-1,\@i_best)->reshape( @{ $shapes[0] } )->sever,

@@ -1,5 +1,9 @@
 Revision history for PDL-Stats
 
+0.2.2   07/23/2009
+        stats_distr.t moved form t/ to Distr/t, ie skip the test if no GSL.
+        more kmeans fix (4d, seeding). added seeded kmeans tests.
+
 0.2.1   07/22/2009
         kmeans 4d fix. added pms dir for cpan pod parse
 
