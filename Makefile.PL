@@ -13,7 +13,7 @@ WriteMakefile(
     PL_FILES            => {},
     PREREQ_PM => {
         'Test::More' => 0,
-        'PDL' => 0,
+        'PDL' => 2.4.4,    # bad value support turned on by default
     },
     DIR                 => ['Basic', 'Distr', 'GLM', 'Kmeans', 'GSL'],
     dist                => { COMPRESS => 'gzip -9f', SUFFIX => 'gz', },

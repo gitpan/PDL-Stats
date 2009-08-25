@@ -5,7 +5,7 @@ use warnings;
 use Test::More;
 
 BEGIN {
-    plan tests => 30;
+    plan tests => 32;
       # 1-2
     use_ok( 'PDL::Stats::Basic' );
     use_ok( 'PDL::Stats::GLM' );
@@ -120,7 +120,7 @@ sub t_pca {
   my $a = sequence 10, 5;
   $a->where($a % 7 == 0) .= 0;
 
-  my %m = $a->pca;
+  my %m = $a->pca({PLOT=>0});
   my %a = (
 value => pdl(1.59696,1.17391,1.05055,0.603594,0.574989),
 var   => pdl(0.319391,0.234782,0.21011,0.120719,0.114998),
@@ -129,6 +129,18 @@ var   => pdl(0.319391,0.234782,0.21011,0.120719,0.114998),
   $sum += sum($a{$_} - $m{$_})
     for (keys %a);
   return $sum / 10;
+}
+
+is( tapprox( t_pca_sorti(), 0 ), 1 );
+sub t_pca_sorti {
+  my $a = sequence 10, 5;
+  $a->where($a % 7 == 0) .= 0;
+
+  my %m = $a->pca({PLOT=>0});
+
+  my ($iv, $ic) = $m{loading}->pca_sorti;
+
+  return sum($iv - pdl(qw(4 1 0 2 3))) + sum($ic - pdl(qw( 0 1 2 )));
 }
 
 SKIP: {
@@ -150,22 +162,22 @@ $a_bad->setbadat(-1);
 my $b_bad = pdl(0, 0, 0, 0, 1, 1);
 $b_bad->setbadat(0);
 
-  # 20-21 
+  # 21 
 is( tapprox( $a_bad->dev_m->avg, 0 ), 1 );
 is( tapprox( $a_bad->stddz->avg, 0 ), 1 );
-  # 22-24
+  # 23
 is( tapprox( $a_bad->sse($b_bad), 23), 1 );
 is( tapprox( $a_bad->mse($b_bad), 5.75), 1 );
 is( tapprox( $a_bad->rmse($b_bad), 2.39791576165636 ), 1 );
-  # 25
+  # 26
 is( tapprox( $b_bad->glue(1,ones(6))->pred_logistic(pdl(1,2))->sum, 4.54753948757851 ), 1 );
 
-  # 26-28
+  # 27
 is( tapprox( $b_bad->d0(), 6.73011667009256 ), 1 );
 is( tapprox( $b_bad->dm( ones(6) * .5 ), 6.93147180559945 ), 1 );
 is( tapprox( sum($b_bad->dvrs(ones(6) * .5) ** 2), 6.93147180559945 ), 1 );
 
-  # 29
+  # 30
 is( tapprox( t_effect_code_w(), 0 ), 1 );
 sub t_effect_code_w {
   my @a = qw( a a a b b b b c c c );
@@ -173,7 +185,6 @@ sub t_effect_code_w {
   return sum($a->sumover - pdl byte, (0, 0));
 }
 
-  # 30
 is( tapprox( t_anova(), 0 ), 1 );
 sub t_anova {
   my $d = sequence 60;
@@ -181,9 +192,26 @@ sub t_anova {
   my $b = $d % 3;
   my $c = $d % 2;
   $d(20) .= 10;
-  my %m = $d->anova([\@a, $b, $c], [qw(A B C)]);
+  my %m = $d->anova(\@a, $b, $c, {IVNM=>[qw(A B C)], plot=>0});
   my $ans_F = pdl(165.252100840336, 0.0756302521008415);
   my $ans_m = pdl([qw(8 18 38 53)], [qw(8 23 38 53)]);
+  return  sum( pdl( @m{'| A | F', '| A ~ B ~ C | F'} ) - $ans_F )
+        + sum( $m{'# A ~ B ~ C # m'}->(,2,)->squeeze - $ans_m )
+  ;
+}
+
+is( tapprox( t_anova_bad(), 0 ), 1 );
+sub t_anova_bad {
+  my $d = sequence 60;
+  $d(20) .= 10;
+  $d->setbadat(1);
+  $d->setbadat(10);
+  my @a = map {$a = $_; map { $a } 0..14 } qw(a b c d);
+  my $b = sequence(60) % 3;
+  my $c = sequence(60) % 2;
+  my %m = $d->anova(\@a, $b, $c, {IVNM=>[qw(A B C)], plot=>0, v=>0});
+  my $ans_F = pdl( 150.00306433446, 0.17534855325553 );
+  my $ans_m = pdl([qw( 4 22 37 52 )], [qw( 10 22 37 52 )]);
   return  sum( pdl( @m{'| A | F', '| A ~ B ~ C | F'} ) - $ans_F )
         + sum( $m{'# A ~ B ~ C # m'}->(,2,)->squeeze - $ans_m )
   ;

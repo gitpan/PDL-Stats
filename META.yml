@@ -1,11 +1,11 @@
 # http://module-build.sourceforge.net/META-spec.html
 #XXXXXXX This is a prototype!!!  It will change in the future!!! XXXXX#
 name:         PDL-Stats
-version:      0.2.2
+version:      0.2.3
 version_from: Stats.pm
 installdirs:  site
 requires:
-    PDL:                           0
+    PDL:                           
     Test::More:                    0
 
 distribution_type: module

@@ -8,12 +8,12 @@ PDL::Stats - a collection of statistics modules in Perl Data Language, with a qu
 
 =head1 VERSION
 
-Version 0.2.2
+Version 0.2.3
 
 =cut
 
 
-$VERSION = '0.2.2';
+$VERSION = '0.2.3';
 
 
 =head1 DESCRIPTION
@@ -22,20 +22,21 @@ Loads modules named below, making the functions available in the current namespa
  
 =head1 SYNOPSIS
 
-   use PDL::LiteF;
+    use PDL::LiteF;        # loads less modules
+    use PDL::NiceSlice;    # preprocessor for easier pdl indexing syntax 
 
-   use PDL::Stats;
+    use PDL::Stats;
  
-   # Is equivalent to the following:
+    # Is equivalent to the following:
 
-   use PDL::Stats::Basic;
-   use PDL::Stats::GLM;
-   use PDL::Stats::Kmeans;
+    use PDL::Stats::Basic;
+    use PDL::Stats::GLM;
+    use PDL::Stats::Kmeans;
  
-   # and the following if installed;
+    # and the following if installed;
 
-   use PDL::Stats::Distr;
-   use PDL::GSL::CDF;
+    use PDL::Stats::Distr;
+    use PDL::GSL::CDF;
 
 =head1 QUICK-START FOR NON-PDL PEOPLE
 
@@ -44,9 +45,6 @@ Enjoy PDL::Stats without having to dive into PDL, just wet your feet a little. T
 =head2 pdl
 
 The magic word that puts PDL::Stats at your disposal. pdl creates a PDL numeric data object (a pdl, pronounced "piddle" :/ ) from perl array or array ref. All PDL::Stat methods, unless meant for regular perl array, can then be called from the data object.
-
-    use PDL::Lite;
-    use PDL::Stats;
 
     my @y = 0..5;
 
@@ -225,6 +223,7 @@ use PDL::Stats::Basic;
 use PDL::Stats::Distr;
 use PDL::Stats::GLM;
 use PDL::Stats::Kmeans;
+#use PDL::Stats::TS;
 use PDL::GSL::CDF;
 
 EOD
@@ -237,6 +236,7 @@ package $pkg;
 use PDL::Stats::Basic;
 use PDL::Stats::GLM;
 use PDL::Stats::Kmeans;
+use PDL::Stats::TS;
 
 EOD
   }

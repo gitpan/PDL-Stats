@@ -4,7 +4,7 @@
 #
 package PDL::Stats::GLM;
 
-@EXPORT_OK  = qw(  ols_t anova dummy_code effect_code effect_code_w ols r2_change logistic pca PDL::PP fill_m PDL::PP fill_rand PDL::PP dev_m PDL::PP stddz PDL::PP sse PDL::PP mse PDL::PP rmse PDL::PP pred_logistic PDL::PP d0 PDL::PP dm PDL::PP dvrs );
+@EXPORT_OK  = qw(  ols_t anova dummy_code effect_code effect_code_w ols r2_change logistic pca pca_sorti plot_means plot_scree PDL::PP fill_m PDL::PP fill_rand PDL::PP dev_m PDL::PP stddz PDL::PP sse PDL::PP mse PDL::PP rmse PDL::PP pred_logistic PDL::PP d0 PDL::PP dm PDL::PP dvrs );
 %EXPORT_TAGS = (Func=>[@EXPORT_OK]);
 
 use PDL::Core;
@@ -42,6 +42,13 @@ my $SLATEC;
 if ( grep { -e "$_/PDL/Slatec.pm"  } @INC ) {
   require PDL::Slatec;
   $SLATEC = 1;
+}
+
+my $PGPLOT;
+if ( grep { -e "$_/PGPLOT.pm"  } @INC ) {
+  require PDL::Graphics::PGPLOT::Window;
+  PDL::Graphics::PGPLOT::Window->import( 'pgwin' );
+  $PGPLOT = 1;
 }
 
 =head1 NAME
@@ -770,6 +777,16 @@ sub PDL::r2_change {
 
 Analysis of variance. Uses type III sum of squares for unbalanced data.
 
+anova supports bad value in the dependent variable.
+
+=for options
+
+Default options (case insensitive):
+
+    IVNM   => undef,   # auto filled as ['IV_0', 'IV_1', ... ]
+    PLOT   => 1,       # plots highest order interaction
+    V      => 1,       # carps if bad value in dv
+
 =for usage
 
 Usage:
@@ -790,84 +807,102 @@ Usage:
 
     # 1st @ ref is ivs, 2nd @ ref is optional iv names
 
-    perldl> %m = $d->anova( [$a, \@b], [apple, bake] )
+    perldl> %m = $y->anova( $a, \@b, { IVNM=>['apple', 'bake'] } )
     
     perldl> p "$_\t$m{$_}\n" for (sort keys %m)
- 
     # apple # m
     [
-     [2.75    3 3.25]
+     [2.5   3 3.5]
     ]
     
     # apple # se
     [
-     [0.85391256 0.91287093 0.85391256]
+     [0.64549722 0.91287093 0.64549722]
     ]
     
     # apple ~ bake # m
     [
-     [1.5 1.5   2]
-     [  4 4.5 4.5]
+     [1.5 1.5 2.5]
+     [3.5 4.5 4.5]
     ]
     
     # apple ~ bake # se
     [
-     [0.5 0.5   1]
-     [  1 0.5 0.5]
+     [0.5 0.5 0.5]
+     [0.5 0.5 0.5]
     ]
     
     # bake # m
     [
-     [ 1.6666667  4.3333333]
+     [ 1.8333333  4.1666667]
     ]
     
     # bake # se
     [
-     [0.33333333 0.33333333]
+     [0.30731815 0.30731815]
     ]
     
-    F       4.4
+    F       7.6
     F_df    [5 6]
-    F_p     0.0496945790114411
-    ms_model        4.4
-    ms_residual     1
-    ss_model        22
-    ss_residual     6
-    ss_total        28
-    | apple | F     0.25
+    F_p     0.0141586545851857
+    ms_model        3.8
+    ms_residual     0.5
+    ss_model        19
+    ss_residual     3
+    ss_total        22
+    | apple | F     2
     | apple | F_df  [2 6]
-    | apple | F_p   0.78652708238507
-    | apple | ms    0.25
-    | apple | ss    0.5
-    | apple ~ bake | F      0.0833333333333335
+    | apple | F_p   0.216
+    | apple | ms    1
+    | apple | ss    2
+    | apple ~ bake | F      0.666666666666667
     | apple ~ bake | F_df   [2 6]
-    | apple ~ bake | F_p    0.921090557321383
-    | apple ~ bake | ms     0.0833333333333335
-    | apple ~ bake | ss     0.166666666666667
-    | bake | F      21.3333333333333
+    | apple ~ bake | F_p    0.54770848985725
+    | apple ~ bake | ms     0.333333333333334
+    | apple ~ bake | ss     0.666666666666667
+    | bake | F      32.6666666666667
     | bake | F_df   [1 6]
-    | bake | F_p    0.00361989531398121
-    | bake | ms     21.3333333333333
-    | bake | ss     21.3333333333333
- 
+    | bake | F_p    0.00124263849516693
+    | bake | ms     16.3333333333333
+    | bake | ss     16.3333333333333
+
 =cut
 
 *anova = \&PDL::anova;
 sub PDL::anova {
-  my ($self, $ivs_raw_ref, $idv) = @_;
+  my $opt = pop @_
+    if ref $_[-1] eq 'HASH';
+  my ($self, @ivs_raw) = @_;
+  croak "Mismatched number of elements in DV and IV. Are you passing IVs the old-and-abandoned way?"
+    if (ref $ivs_raw[0] eq 'ARRAY') and (@{ $ivs_raw[0] } != $self->nelem);
+
+  my %opt = (
+    IVNM   => undef,   # auto filled as ['IV_0', 'IV_1', ... ]
+    PLOT   => 1,       # plots highest order interaction
+    V      => 1,       # carps if bad value in dv
+  );
+  $opt and $opt{uc $_} = $opt->{$_} for (keys %$opt);
+
   my %ret;
 
   $self = $self->squeeze;
+  my $igood = which $self->isgood;
+  carp $igood->nelem . " good values in DV"
+    if $igood->nelem < $self->nelem and $opt{V};
+  $self = $self( $igood )->sever;
 
-  my @ivs_raw = map {scalar PDL::Stats::Kmeans::_array_to_pdl((ref $_ eq 'PDL')? [list $_] : $_)}
-                @$ivs_raw_ref;
+  @ivs_raw = map { (ref $_ eq 'PDL')? [list $_($igood)] : [ @$_[list $igood] ] }
+                 @ivs_raw;
 
-  my ($ivs_ref, $i_cmo_ref) = _effect_code_ivs( \@ivs_raw );
+  my @pdl_ivs_raw = map {scalar PDL::Stats::Kmeans::_array_to_pdl $_ } @ivs_raw;
 
-  my @idv = $idv? @$idv : map { "IV_$_" } (0..$#$ivs_ref);
+  my ($ivs_ref, $i_cmo_ref) = _effect_code_ivs( \@pdl_ivs_raw );
 
-  ($ivs_ref, $idv, my $ivs_cm_ref, $i_cmo_ref)
-    = _add_interactions( $ivs_ref, \@idv, \@ivs_raw, $i_cmo_ref );
+  $opt{IVNM} ||= [ map { "IV_$_" } (0..$#$ivs_ref) ];
+  my @idv = @{ $opt{IVNM} };
+
+  ($ivs_ref, my $idv, my $ivs_cm_ref, $i_cmo_ref)
+    = _add_interactions( $ivs_ref, \@idv, \@pdl_ivs_raw, $i_cmo_ref );
 
 #print "$idv->[$_]\t$ivs_ref->[$_]\n" for (0..$#$ivs_ref);
 
@@ -911,11 +946,22 @@ sub PDL::anova {
 
   for (keys %ret) { $ret{$_} = $ret{$_}->squeeze };
 
-  my $cm_ref = _cell_means( $self, $ivs_cm_ref, $i_cmo_ref, $idv, \@ivs_raw );
+  my $cm_ref = _cell_means( $self, $ivs_cm_ref, $i_cmo_ref, $idv, \@pdl_ivs_raw );
     # sort bc we can't count on perl % internal key order implementation
   @ret{ sort keys %$cm_ref } = @$cm_ref{ sort keys %$cm_ref };
 
+  my $highest = join(' ~ ', @{ $opt{IVNM} });
+  $cm_ref->{"# $highest # m"}->plot_means(
+                           {SE=>$cm_ref->{"# $highest # se"}, IVNM=>$idv, } )
+    if $opt{PLOT};
+
   return %ret;
+}
+
+sub _old_interface_check {
+  my ($n, $ivs_ref) = @_;
+  return 1
+    if (ref $ivs_ref->[0][0] eq 'ARRAY') and (@{ $ivs_ref->[0][0] } != $n);
 }
 
 sub _effect_code_ivs {
@@ -1048,6 +1094,8 @@ sub _combinations {
 
 =head2 dummy_code
 
+=for ref
+
 dummy coding of nominal variable (perl @ ref or 1d pdl) for use in regression.
 
 =for usage
@@ -1120,6 +1168,8 @@ sub PDL::effect_code {
 }
 
 =head2 effect_code_w
+
+=for ref
 
 weighted effect code for nominal variable. returns in @ context coded pdl and % ref to level - pdl->dim(1) index. note that the last level is not explicitly coded in pdl
 
@@ -1482,9 +1532,15 @@ sub _logistic_no_intercept {
 
 =for ref
 
-Principal component analysis. $data is pdl dim obs x var. output loading (corr between var and axis) and score are pdls dim var x axis. value and var are pdls dim axis.
+Principal component analysis. $data is pdl dim obs x var. output loading (corr between var and component) and score are pdls dim var x component. value and var are pdls dim component.
 
-Based on corr instead of cov (bad values are ignored pair-wise. OK when bad values are few but otherwise probably should fill_m etc before pca). use PDL::Slatec::eigsys() if installed. otherwise use PDL::MatrixOps::eigens_sym(). added loadings and descending sorted axis by $value (ie variance accouted for).
+Based on corr instead of cov (bad values are ignored pair-wise. OK when bad values are few but otherwise probably should fill_m etc before pca). Use PDL::Slatec::eigsys() if installed, otherwise use PDL::MatrixOps::eigens_sym(). Added loadings and descending sorted component by $value (ie variance accouted for).
+
+=for options
+
+Default options (case insensitive):
+
+    PLOT  => 1,       # scree plot for var accounted for
 
 =for usage
 
@@ -1492,22 +1548,18 @@ Usage:
 
     my $data   = random 100, 20;       # 100 obs on 20 var
     my %result = $data->pca;
-    print "$_\t" . $result{$_} . "\n" for (keys %result);
-
-    # screeplot for % of var accounted for by each axis
-
-    use PDL::Graphics::PGPLOT::Window;
-
-    my $win = pgwin( Dev=>"/xs" );
-    $win->line( $result{var} );
-    $win->hold;
-    $win->points( $result{var}, {CHARSIZE=>2} );
+    print "$_\t$result{$_}\n" for (keys %result);
 
 =cut
 
 *pca = \&PDL::pca;
 sub PDL::pca {
   my ($self, $opt) = @_;
+
+  my %opt = (
+    PLOT  => 1,
+  );
+  $opt and $opt{uc $_} = $opt->{$_} for (keys %$opt);
 
   $self = $self->dev_m;
 
@@ -1530,9 +1582,265 @@ sub PDL::pca {
 
     # var x axis
   my $loading = $score * sqrt( $value->transpose );
+  my $var     = $value / $self->dim(1);
 
-  return ( loading=>$loading, value=>$value, score=>$score,
-           var=>$value / $self->dim(1) ); 
+  $var->plot_scree
+    if $opt{PLOT};
+
+  return ( loading=>$loading, value=>$value, score=>$score, var=>$var ); 
+}
+
+=head2 pca_sorti
+
+Determine by which vars a component is best represented. Descending sort vars by size of association with that component. Returns sorted var index.
+
+=for options
+
+Default options (case insensitive):
+
+    NCOMP => 10,     # maximum number of components to consider
+
+=for usage
+
+Usage:
+
+      # let's see if we replicated the Osgood et al. (1957) study
+    perldl> ($data, $idv, $ido) = get_data 'osgood_exp.csv', {v=>0}
+
+      # select a subset of var to do pca
+    perldl> $ind = which_id $idv, [qw( ACTIVE BASS BRIGHT CALM FAST GOOD HAPPY HARD LARGE HEAVY )]
+    perldl> $data = $data( ,$ind)->sever
+    perldl> @$idv = @$idv[list $ind]
+
+    perldl> %m = $data->pca
+ 
+    perldl> ($iv, $ic) = $m{loading}->pca_sorti()
+
+    perldl> p "$idv->[$_]\t" . $m{loading}->($_,$ic)->flat . "\n" for (list $iv)
+             #   COMP1     COMP2    COMP3    COMP4
+    HAPPY	[0.860191 0.364911 0.174372 -0.10484]
+    GOOD	[0.848694 0.303652 0.198378 -0.115177]
+    CALM	[0.821177 -0.130542 0.396215 -0.125368]
+    BRIGHT	[0.78303 0.232808 -0.0534081 -0.0528796]
+    HEAVY	[-0.623036 0.454826 0.50447 0.073007]
+    HARD	[-0.679179 0.0505568 0.384467 0.165608]
+    ACTIVE	[-0.161098 0.760778 -0.44893 -0.0888592]
+    FAST	[-0.196042 0.71479 -0.471355 0.00460276]
+    LARGE	[-0.241994 0.594644 0.634703 -0.00618055]
+    BASS	[-0.621213 -0.124918 0.0605367 -0.765184]
+    
+=cut
+
+*pca_sorti = \&PDL::pca_sorti;
+sub PDL::pca_sorti {
+    # $self is pdl (var x component)
+  my ($self, $opt) = @_;
+
+  my %opt = (
+    NCOMP => 10,     # maximum number of components to consider
+  );
+  $opt and $opt{uc $_} = $opt->{$_} for (keys %$opt);
+
+  my $ncomp = pdl($opt{NCOMP}, $self->dim(1))->min;
+  $self = $self->dice_axis( 1, pdl(0..$ncomp-1) );
+  
+  my $icomp = $self->transpose->abs->maximum_ind;
+ 
+    # sort between comp
+  my $ivar_sort = $icomp->qsorti;
+  $self = $self($ivar_sort, )->sever;
+
+    # sort within comp
+  my $ic = $icomp($ivar_sort)->iv_cluster;
+  for my $comp (0 .. $ic->dim(1)-1) {
+    my $i = $self(which($ic( ,$comp)), $comp)->qsorti;
+      # descending sort by size
+    $i = pdl(reverse list $i);
+    $ivar_sort(which $ic( ,$comp))
+      .= $ivar_sort(which $ic( ,$comp))->($i)->sever;
+  }
+  return wantarray? ($ivar_sort, pdl(0 .. $ic->dim(1)-1)) : $ivar_sort;
+}
+
+=head2 plot_means
+
+Plots means anova style. Can handle up to 4-way interactions (ie 4D pdl).
+
+=for options
+
+Default options (case insensitive):
+
+    IVNM  => ['IV_0', 'IV_1', 'IV_2', 'IV_3'],
+    DVNM  => 'DV',
+    AUTO  => 1,       # auto set dims to be on x-axis, line, panel
+                      # if set 0, dim 0 goes on x-axis, dim 1 as lines
+                      # dim 2+ as panels
+      # see PDL::Graphics::PGPLOT::Window for next options
+    WIN   => undef,   # pgwin object. not closed here if passed
+                      # allows comparing multiple lines in same plot
+                      # set env before passing WIN
+    DEV   => '/xs',         # open and close dev for plotting if no WIN
+    SIZE  => 480,           # individual square panel size in pixels
+    SYMBL => [0, 4, 7, 11], 
+
+=for usage
+
+Usage:
+
+      # see anova for mean / se pdl structure
+    $mean->plot_means( $se, {IVNM=>['apple', 'bake']} );
+  
+Or like this:
+
+    $m{'# apple ~ bake # m'}->plot_means;
+
+=cut
+
+*plot_means = \&PDL::plot_means;
+sub PDL::plot_means {
+  my $opt = pop @_
+    if ref $_[-1] eq 'HASH';
+  my ($self, $se) = @_;
+  if (!$PGPLOT) {
+    carp "No PDL::Graphics::PGPLOT, no plot :(";
+    return;
+  }
+  $self = $self->squeeze;
+  if ($self->ndims > 4) {
+    carp "data is > 4D!";
+    return;
+  }
+
+  my %opt = (
+    IVNM => ['IV_0', 'IV_1', 'IV_2', 'IV_3'],
+    DVNM => 'DV',
+    AUTO  => 1,             # auto set vars to be on X axis, line, panel
+    WIN   => undef,         # PDL::Graphics::PGPLOT::Window object
+    DEV   => '/xs',
+    SIZE  => 480,           # individual square panel size in pixels
+    SYMBL => [0, 4, 7, 11], # ref PDL::Graphics::PGPLOT::Window 
+  );
+  $opt and $opt{uc $_} = $opt->{$_} for (keys %$opt);
+
+    # decide which vars to plot as x axis, lines, panels
+    # put var w most levels on x axis
+    # put var w least levels on diff panels
+  my @iD = 0..3;
+  my @dims = (1, 1, 1, 1);
+  splice @dims, 0, $self->ndims, $self->dims;
+  $self = $self->reshape(@dims)->sever;
+  $se = $se->reshape(@dims)->sever
+    if defined $se;
+  @iD = reverse list qsorti pdl @dims
+    if $opt{AUTO};
+
+  my $nx = $self->dim($iD[2]);
+  my $ny = $self->dim($iD[3]);
+  
+  my $w = $opt{WIN};
+  if (!defined $w) {
+    $w = pgwin(DEV=>$opt{DEV}, NX=>$nx, NY=>$ny,
+                 SIZE=>[$opt{SIZE}*$nx, $opt{SIZE}*$ny], UNIT=>3);
+  }
+
+  my ($min, $max) = $self->minmax;
+  my $range = $max - $min;
+  my $p = 0;   # panel
+
+  for my $y (0..$self->dim($iD[3])-1) {
+    for my $x (0..$self->dim($iD[2])-1) {
+      $p ++;
+      my $tl = '';
+         $tl = $opt{IVNM}->[$iD[2]] . " $x"  if $self->dim($iD[2]) > 1;
+         $tl.= ' ' . $opt{IVNM}->[$iD[3]] . " $y"  if $self->dim($iD[3]) > 1;
+      $w->env( 0, $self->dim($iD[0])-1, $min - 2*$range/5, $max + $range/5,
+             { XTitle=>$opt{IVNM}->[$iD[0]], YTitle=>$opt{DVNM}, Title=>$tl,                 PANEL=>$p, AXIS=>['BCNT', 'BCNST'], Border=>1, 
+              } )
+        unless $opt{WIN};
+  
+      my (@legend, @color);
+      for (0 .. $self->dim($iD[1]) - 1) {
+        push @legend, $opt{IVNM}->[$iD[1]] . " $_";
+        push @color, $_ + 2;    # start from red
+        $w->points( sequence($self->dim($iD[0])),
+        $self->dice_axis($iD[3],$y)->dice_axis($iD[2],$x)->dice_axis($iD[1],$_),
+                      $opt{SYMBL}->[$_],
+                    { PANEL=>$p, CHARSIZE=>2, COLOR=>$_+2, PLOTLINE=>1, } );
+        $w->errb( sequence($self->dim($iD[0])),
+        $self->dice_axis($iD[3],$y)->dice_axis($iD[2],$x)->dice_axis($iD[1],$_),
+        $se->dice_axis($iD[3],$y)->dice_axis($iD[2],$x)->dice_axis($iD[1],$_),
+                    { PANEL=>$p, CHARSIZE=>2, COLOR=>$_+2 }  )
+          if defined $se;
+      }
+      if ($self->dim($iD[1]) > 1) {
+        $w->legend( \@legend, ($self->dim($iD[0])-1)/1.6, $min - $range/10,
+                   { COLOR=>\@color } );
+        $w->legend( \@legend, ($self->dim($iD[0])-1)/1.6, $min - $range/10,
+                   { COLOR=>\@color, SYMBOL=>[ @{$opt{SYMBL}}[0..$#color] ] } );
+      }
+    }
+  }
+  $w->close
+    unless $opt{WIN};
+
+  return;
+}
+
+=head2 plot_scree
+
+Scree plot. Plots proportion of variance accounted for by PCA components.
+
+=for options
+
+Default options (case insensitive):
+
+    NCOMP => 10,      # max number of components to plot
+      # see PDL::Graphics::PGPLOT::Window for next options
+    WIN   => undef,   # pgwin object. not closed here if passed
+                      # allows comparing multiple lines in same plot
+                      # set env before passing WIN
+    DEV   => '/xs',   # open and close dev for plotting if no WIN
+    SIZE  => 480,     # plot size in pixels
+    COLOR => 1,
+  
+=for usage
+
+Usage:
+
+    $var->plot_scree;    # $var should be in descending order
+
+=cut
+
+*plot_scree = \&PDL::plot_scree;
+sub PDL::plot_scree {
+  if (!$PGPLOT) {
+    carp "No PDL::Graphics::PGPLOT, no plot :(";
+    return;
+  }
+  my ($self, $opt) = @_;
+  my %opt = (
+    NCOMP => 10,
+      # see PDL::Graphics::PGPLOT::Window for next options
+    WIN   => undef,         # pgwin object w env set. won't be closed if passed
+    DEV   => '/xs',         # open and close dev for plotting if no WIN
+    SIZE  => 480,           # plot size in pixels
+    COLOR => 1,
+  );
+  $opt and $opt{uc $_} = $opt->{$_} for (keys %$opt);
+
+  my $win = $opt{WIN};
+  my $ncomp = ($self->dim(0) < $opt{NCOMP})? $self->dim(0) : $opt{NCOMP};
+  if (!$win) {
+   $win = pgwin(DEV=>$opt{DEV}, SIZE=>[$opt{SIZE}, $opt{SIZE}], UNIT=>3);
+   $win->env(0, $ncomp-1, 0, $self->max,
+     {XTitle=>'Compoment', YTitle=>'Proportion of Variance Accounted for',
+     AXIS=>['BCNT', 'BCNST'], Border=>1, });
+  }
+  $win->points(sequence($ncomp), $self(0:$ncomp-1, ),
+        {CHARSIZE=>2, COLOR=>$opt{COLOR}, PLOTLINE=>1} );
+  $win->close
+    unless $opt{WIN};
+  return;
 }
 
 =head1 TO DO
@@ -1550,6 +1858,8 @@ L<PDL::Fit::LM>
 Cohen, J., Cohen, P., West, S.G., & Aiken, L.S. (2003). Applied multiple regression/correlation analysis for the behavioral sciences (3rd ed.). Mahwah, NJ: Lawrence Erlbaum Associates Publishers.
 
 Hosmer, D.W., & Lemeshow, S. (2000). Applied logistic regression (2nd ed.). New York, NY: Wiley-Interscience. 
+
+Osgood C.E., Suci, G.J., & Tannenbaum, P.H. (1957). The Measurement of Meaning. Champaign, IL: University of Illinois Press.
 
 The GLM procedure: unbalanced ANOVA for two-way design with interaction. (2008). SAS/STAT(R) 9.2 User's Guide. Retrieved June 18, 2009 from http://support.sas.com/
 

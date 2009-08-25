@@ -946,7 +946,7 @@ Default options (case insensitive):
 
 Usage:
 
-    ($data, $idv, $ido) = get_data( *STDIN, { TYPE=>long } );
+    ($data, $idv, $ido) = get_data( \*STDIN, { TYPE=>long } );
 
     $data = get_data( 'zcat big_data.txt.gz |' );
 

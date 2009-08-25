@@ -28,6 +28,13 @@ use warnings;
 use Carp;
 use PDL::LiteF;
 
+my $PGPLOT;
+if ( grep { -e "$_/PGPLOT.pm"  } @INC ) {
+  require PDL::Graphics::PGPLOT::Window;
+  PDL::Graphics::PGPLOT::Window->import( 'pgwin' );
+  $PGPLOT = 1;
+}
+
 =head1 NAME
 
 PDL::Stats::Distr -- parameter estimations and probability density functions for distributions.
@@ -866,12 +873,19 @@ It will set the bad-value flag of all output piddles if the flag is set for any 
 
 =for ref
 
-Plots data distribution. When given specific distribution(s) to fit, returns % ref to sum log likelihood and parameter values under fitted distribution(s). See FUNCTIONS above for available distributions. See PDL::Graphics::PGPLOT for DEV options. Default options (case insensitive):
+Plots data distribution. When given specific distribution(s) to fit, returns % ref to sum log likelihood and parameter values under fitted distribution(s). See FUNCTIONS above for available distributions. 
 
 =for options
 
-    DEV   => '/xs',
+Default options (case insensitive):
+
     MAXBN => 20, 
+      # see PDL::Graphics::PGPLOT::Window for next options
+    WIN   => undef,   # pgwin object. not closed here if passed
+                      # allows comparing multiple distr in same plot
+                      # set env before passing WIN
+    DEV   => '/xs',   # open and close dev for plotting if no WIN
+    COLOR => 1,       # color for data distr
 
 =for usage
 
@@ -890,13 +904,17 @@ Usage:
 
 *plot_distr = \&PDL::plot_distr;
 sub PDL::plot_distr {
-  require PDL::Graphics::PGPLOT;
-
+  if (!$PGPLOT) {
+    carp "No PDL::Graphics::PGPLOT, no plot :(";
+    return;
+  }
   my ($self, @distr) = @_;
 
   my %opt = (
-    DEV   => '/xs',
     MAXBN => 20, 
+    WIN   => undef,     # pgwin object. not closed here if passed
+    DEV   => '/xs',     # open and close default win if no WIN
+    COLOR => 1,         # color for data distr
   );
   my $opt = pop @distr
     if ref $distr[-1] eq 'HASH';
@@ -920,23 +938,28 @@ sub PDL::plot_distr {
     # turn fre into prob
   $hist /= $self->dim(0);
 
-  my $c;
-  my $win = PDL::Graphics::PGPLOT::pgwin( Dev=>$opt{DEV} );
     # use min to make it pure scalar for sequence
   my $xvals = $self->min + sequence( $opt{MAXBN}->min ) * $step;
   my $xvals_int
     = PDL::ceil($self->min) + sequence( $opt{MAXBN}->min ) * $step_int;
   $xvals_int = $xvals_int->where( $xvals_int <= $xvals->max )->sever;
 
-  $win->env($xvals->minmax,0,1, {XTitle=>'bins', YTitle=>'probability'});
-  $win->line( $xvals, $hist, {COLOR=>++$c} );
+  my $win = $opt{WIN};
+  if (!$win) {
+    $win = pgwin( Dev=>$opt{DEV} );
+    $win->env($xvals->minmax,0,1, {XTitle=>'bins', YTitle=>'probability'});
+  }
+
+  $win->line( $xvals, $hist, { COLOR=>$opt{COLOR} } );
 
   if (!@distr) {
-    $win->close;
+    $win->close
+      unless defined $opt{WIN};
     return;
   }
 
-  my (%ll, %pars, @text);
+  my (%ll, %pars, @text, $c);
+  $c = $opt{COLOR};        # fitted lines start from ++$c
   for my $distr ( @distr ) {
       # find mle_ or mme_$distr;
     my @funcs = grep { /_$distr$/ } (keys %PDL::Stats::Distr::);
@@ -966,8 +989,9 @@ sub PDL::plot_distr {
     carp $@ if $@;
   }
   $win->legend(\@text, ($xvals->min + $xvals->max)/2, .95,
-               {COLOR=>[2..$c], TextFraction=>.75} );
-  $win->close;
+               {COLOR=>[$opt{COLOR}+1 .. $c], TextFraction=>.75} );
+  $win->close
+    unless defined $opt{WIN};
   return (\%ll, \%pars);
 }
 

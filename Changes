@@ -1,5 +1,14 @@
 Revision history for PDL-Stats
 
+0.2.3   08/24/2009
+        ***anova interface change*** IV names now passed in \%opt instead of @ ref. I appologize for the interface change, but it matches the new method plot_means, and makes it easier to pass IVs themselves. I promise that such interface changes will be extremely rare, if at all.
+        anova now supports bad value in DV.
+        Added plot_means in PDL::Stats::GLM. anova plots highest order interaction by default.
+        Added plot_scree in PDL::Stats::GLM. pca does scree plot by default.
+        Added pca_sorti in PDL::Stats::GLM.
+        plot_distr in PDL::Stats::Distr accepts WIN option
+        Set prerequisite PDL => 2.4.4, which has bad value support by default
+
 0.2.2   07/23/2009
         stats_distr.t moved form t/ to Distr/t, ie skip the test if no GSL.
         more kmeans fix (4d, seeding). added seeded kmeans tests.
