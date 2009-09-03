@@ -5,7 +5,7 @@ use warnings;
 use Test::More;
 
 BEGIN {
-    plan tests => 13;
+    plan tests => 15;
       # 1-2
     use_ok( 'PDL::Stats::Basic' );
     use_ok( 'PDL::Stats::Kmeans' );
@@ -171,4 +171,34 @@ sub t_kmeans_bad {
   $data = $data->setbadat(4,0);
   my %m = $data->kmeans({NCLUS=>2, NTRY=>10, V=>0});
   return sum( $m{ms}->sumover - pdl qw( 1.5  1.9166667  1.9166667 ) );
+}
+
+t_kmeans_3d_bad();
+sub t_kmeans_3d_bad {
+  my $data = sequence 7, 3, 2;
+  $data(0:1, ,0) .= 0;
+  $data(4:6, ,1) .= 1;
+  $data->setbadat(3,0,0);
+  my %m = $data->kmeans( {nclus=>[2,1], ntry=>10, v=>0} );
+#  print "$_\t$m{$_}\n" for (sort keys %m);
+
+  my %a = (
+    'R2'  => pdl( [ qw( 0.96879592 0.99698988 ) ] ),
+    'ms'  => pdl(
+ [
+  [2.1875,     0],
+  [     2,     0],
+  [     2,     0],
+ ],
+ [
+  [   0,1.25],
+  [   0,1.25],
+  [   0,1.25],
+ ]
+           ),
+  );
+
+    # 14-15 
+  is(tapprox( sum( $m{R2} - $a{R2} ), 0 ), 1);
+  is(tapprox( sum( $m{ms} - $a{ms} ), 0, 1e-3 ), 1);
 }

@@ -128,7 +128,10 @@ pp_def('pdf_beta',
   ',
   BadCode   => '
 
-if ( $ISGOOD($x()) && $ISGOOD($a()) && $ISGOOD($b()) ) {
+if ( $ISBAD($x()) || $ISBAD($a()) || $ISBAD($b()) ) {
+  $SETBAD( $p() );
+}
+else {
   if ($x()>=0 && $x()<=1) {
     double B_1 = 1 / gsl_sf_beta( $a(), $b() );
     $p() = B_1 * pow($x(), $a()-1) * pow(1-$x(), $b()-1);
@@ -136,9 +139,6 @@ if ( $ISGOOD($x()) && $ISGOOD($a()) && $ISGOOD($b()) ) {
   else {
     barf("x out of range [0,1]");
   }
-}
-else {
-  $SETBAD( $p() );
 }
 
   ',
@@ -212,12 +212,12 @@ pp_def('pmf_binomial',
   ',
   BadCode   => '
 
-if ( $ISGOOD($x()) && $ISGOOD($n()) && $ISGOOD($p()) ) {
-    $GENERIC(out) bc = gsl_sf_choose($n(), $x());
-    $out() = bc * pow($p(), $x()) * pow(1-$p(), $n() - $x());
+if ( $ISBAD($x()) || $ISBAD($n()) || $ISBAD($p()) ) {
+  $SETBAD( $out() );
 }
 else {
-  $SETBAD( $out() );
+  $GENERIC(out) bc = gsl_sf_choose($n(), $x());
+  $out() = bc * pow($p(), $x()) * pow(1-$p(), $n() - $x());
 }
 
   ',
@@ -279,11 +279,11 @@ pp_def('pdf_exp',
   ',
   BadCode   => '
 
-if ( $ISGOOD($x()) && $ISGOOD($l()) ) {
-  $p() = $l() * exp( -1 * $l() * $x() );
+if ( $ISBAD($x()) || $ISBAD($l()) ) {
+  $SETBAD( $p() );
 }
 else {
-  $SETBAD( $p() );
+  $p() = $l() * exp( -1 * $l() * $x() );
 }
 
   ',
@@ -356,12 +356,12 @@ pp_def('pdf_gamma',
   ',
   BadCode   => '
 
-if ( $ISGOOD($x()) && $ISGOOD($a()) && $ISGOOD($t()) ) {
-  double g = gsl_sf_gamma( $a() );
-  $p() = pow($x(), $a()-1) * exp(-1*$x() / $t()) / (pow($t(), $a()) * g);
+if ( $ISBAD($x()) || $ISBAD($a()) || $ISBAD($t()) ) {
+  $SETBAD( $p() );
 }
 else {
-  $SETBAD( $p() );
+  double g = gsl_sf_gamma( $a() );
+  $p() = pow($x(), $a()-1) * exp(-1*$x() / $t()) / (pow($t(), $a()) * g);
 }
 
   ',
@@ -430,12 +430,12 @@ pp_def('pdf_gaussian',
   ',
   BadCode   => '
 
-if ( $ISGOOD($x()) && $ISGOOD($m()) && $ISGOOD($v()) ) {
-  $p() = 1 / sqrt($v() * 2 * M_PI)
-       * exp( -1 * pow($x() - $m(), 2) / (2*$v()) );
+if ( $ISBAD($x()) || $ISBAD($m()) || $ISBAD($v()) ) {
+  $SETBAD( $p() );
 }
 else {
-  $SETBAD( $p() );
+  $p() = 1 / sqrt($v() * 2 * M_PI)
+       * exp( -1 * pow($x() - $m(), 2) / (2*$v()) );
 }
 
   ',
@@ -493,11 +493,11 @@ pp_def('pmf_geo',
   ',
   BadCode   => '
 
-if ( $ISGOOD($x()) && $ISGOOD($p()) ) {
-  $out() = pow(1-$p(), $x()) * $p();
+if ( $ISBAD($x()) || $ISBAD($p()) ) {
+  $SETBAD( $out() );
 }
 else {
-  $SETBAD( $out() );
+  $out() = pow(1-$p(), $x()) * $p();
 }
 
   ',
@@ -559,16 +559,16 @@ pp_def('pmf_geosh',
   ',
   BadCode   => '
 
-if ( $ISGOOD($x()) && $ISGOOD($p()) ) {
+if ( $ISBAD($x()) || $ISBAD($p()) ) {
+  $SETBAD( $out() );
+}
+else {
   if ( $x() >= 1 ) {
     $out() = pow(1-$p(), $x()-1) * $p();
   }
   else {
     barf( "x >= 1 please" );
   }
-}
-else {
-  $SETBAD( $out() );
 }
 
   ',
@@ -691,7 +691,10 @@ pp_def('pdf_lognormal',
   ',
   BadCode   => '
 
-if ( $ISGOOD($x()) && $ISGOOD($m()) && $ISGOOD($v()) ) {
+if ( $ISBAD($x()) || $ISBAD($m()) || $ISBAD($v()) ) {
+  $SETBAD( $p() );
+}
+else {
   if ( $x() > 0 && $v() > 0 ) {
     $p() = 1 / ($x() * sqrt($v() * 2 * M_PI))
 	 * exp( -1 * pow(log($x()) - $m(), 2) / (2*$v()) );
@@ -699,9 +702,6 @@ if ( $ISGOOD($x()) && $ISGOOD($m()) && $ISGOOD($v()) ) {
   else {
     barf( "x and v > 0 please" );
   }
-}
-else {
-  $SETBAD( $p() );
 }
 
   ',
@@ -776,13 +776,13 @@ pp_def('pmf_nbd',
   ',
   BadCode   => '
 
-if ( $ISGOOD($x()) && $ISGOOD($r()) && $ISGOOD($p()) ) {
+if ( $ISBAD($x()) || $ISBAD($r()) || $ISBAD($p()) ) {
+  $SETBAD( $out() );
+}
+else {
   $GENERIC(out) nbc
     = gsl_sf_gamma($x()+$r()) / (gsl_sf_fact($x()) * gsl_sf_gamma($r()));
   $out() = nbc * pow($p(),$r()) * pow(1-$p(), $x());
-}
-else {
-  $SETBAD( $out() );
 }
 
   ',
@@ -868,16 +868,16 @@ pp_def('pdf_pareto',
   ',
   BadCode   => '
 
-if ( $ISGOOD($x()) && $ISGOOD($k()) && $ISGOOD($xm()) ) {
+if ( $ISBAD($x()) || $ISBAD($k()) || $ISBAD($xm()) ) {
+  $SETBAD( $p() );
+}
+else {
   if ( $xm() > 0 && $x() >= $xm() ) {
     $p() = $k() * pow($xm(),$k()) / pow($x(), $k()+1);
   }
   else {
     barf("x >= xm > 0 please");
   }
-}
-else {
-  $SETBAD( $p() );
 }
 
   ',
@@ -941,11 +941,11 @@ pp_def('pmf_poisson',
   ',
   BadCode   => '
 
-if ( $ISGOOD($x()) && $ISGOOD($l()) ) {
-  $p() = exp( -1 * $l()) * pow($l(),$x()) / gsl_sf_fact( $x() );
+if ( $ISBAD($x()) || $ISBAD($l()) ) {
+  $SETBAD( $p() );
 }
 else {
-  $SETBAD( $p() );
+  $p() = exp( -1 * $l()) * pow($l(),$x()) / gsl_sf_fact( $x() );
 }
 
   ',

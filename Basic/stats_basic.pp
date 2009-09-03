@@ -218,16 +218,16 @@ pp_def('se',
   ',
   Doc      => '
 
+=for ref
+
+Standard error of the mean. Useful for calculating confidence intervals.
+
 =for usage
 
     # 95% confidence interval for samples with large N
 
     $ci_95_upper = $data->average + 1.96 * $data->se;
     $ci_95_lower = $data->average - 1.96 * $data->se;
-
-=for ref
-
-Standard error of the mean. Useful for calculating confidence intervals.
 
   ',
 
@@ -264,7 +264,7 @@ pp_def('ss',
 
 =for ref
 
-sum of squared deviations from the mean
+Sum of squared deviations from the mean.
 
   ',
 
@@ -313,7 +313,7 @@ pp_def('skew',
 
 =for ref
 
-sample skewness. measure of asymmetry in data. skewness == 0 for normal distribution.
+Sample skewness, measure of asymmetry in data. skewness == 0 for normal distribution.
 
   ',
 
@@ -362,7 +362,7 @@ pp_def('skew_unbiased',
 
 =for ref
 
-unbiased estimate of population skewness. this is the number in GNumeric Descriptive Statistics.
+Unbiased estimate of population skewness. This is the number in GNumeric Descriptive Statistics.
 
   ',
 
@@ -411,7 +411,7 @@ pp_def('kurt',
 
 =for ref
 
-sample kurtosis. measure of "peakedness" of data. kurtosis == 0 for normal distribution. 
+Sample kurtosis, measure of "peakedness" of data. kurtosis == 0 for normal distribution. 
 
   ',
 
@@ -460,7 +460,7 @@ pp_def('kurt_unbiased',
 
 =for ref
 
-unbiased estimate of population kurtosis. this is the number in GNumeric Descriptive Statistics.
+Unbiased estimate of population kurtosis. This is the number in GNumeric Descriptive Statistics.
 
   ',
 
@@ -487,7 +487,8 @@ pp_def('cov',
     ab = 0; sa = 0; sb = 0;
     long N = 0;
     loop (n) %{
-      if ( $ISGOOD($a()) && $ISGOOD($b()) ) {
+      if ( $ISBAD($a()) || $ISBAD($b()) ) { }
+      else {
 	ab += $a() * $b();
 	sa += $a();
 	sb += $b();
@@ -500,15 +501,13 @@ pp_def('cov',
 
 =for ref
 
-sample covariance. see B<corr> for ways to call
+Sample covariance. see B<corr> for ways to call
 
   ',
 
 );
 
 pp_def('corr',
-    # yes it's slower to do all the  / N but
-    # less likely to run over big num limit w pow(s,2)
   Pars      => 'a(n); b(n); float+ [o]c()',
   GenericTypes => [F, D],
   HandleBad => 1,
@@ -524,9 +523,10 @@ pp_def('corr',
 	a2 += pow($a(), 2);
 	b2 += pow($b(), 2);
       %}
-      cov = ab / N - (sa/N) * (sb/N);
-      va  = a2 / N - pow((sa/N),2);
-      vb  = b2 / N - pow((sb/N),2);
+/*  in fact cov * N, va * N, and vb * N  */
+      cov = ab - (sa * sb) / N;
+      va  = a2 - pow(sa,2) / N;
+      vb  = b2 - pow(sb,2) / N;
       $c() = cov / sqrt( va * vb );
     }
     else {
@@ -538,7 +538,8 @@ pp_def('corr',
     ab = 0; sa = 0; sb = 0; a2 = 0; b2 = 0;
     long N = 0;
     loop (n) %{
-      if ( $ISGOOD($a()) && $ISGOOD($b()) ) {
+      if ( $ISBAD($a()) || $ISBAD($b()) ) { }
+      else {
 	ab += $a() * $b();
 	sa += $a();
 	sb += $b();
@@ -548,9 +549,9 @@ pp_def('corr',
       }
     %}
     if ( N >= 2 ) {
-      cov = ab / N - (sa/N) * (sb/N);
-      va  = a2 / N - pow((sa/N),2);
-      vb  = b2 / N - pow((sb/N),2);
+      cov = ab - (sa * sb) / N;
+      va  = a2 - pow(sa,2) / N;
+      vb  = b2 - pow(sb,2) / N;
       $c() = cov / sqrt( va * vb );
     }
     else {
@@ -559,7 +560,13 @@ pp_def('corr',
   ',
   Doc      => '
 
+=for ref
+
+Pearson correlation coefficient. r = cov(X,Y) / (stdv(X) * stdv(Y)).
+
 =for usage 
+
+Usage:
 
     perldl> $a = random 5, 3
     perldl> $b = sequence 5,3
@@ -569,7 +576,7 @@ pp_def('corr',
 
 for square corr table
 
-    perldl> p $a->corr($a->dummy(1,1))
+    perldl> p $a->corr($a->dummy(1))
 
     [
      [           1  -0.41995259 -0.029301192]
@@ -577,12 +584,138 @@ for square corr table
      [-0.029301192  -0.61927619            1]
     ]
 
-=for ref
-
-pearson correlation coefficient. r = cov(X,Y) / (stdv(X) * stdv(Y)).
+but it is easier and faster to use B<corr_table>.
 
   ',
 
+);
+
+pp_def('corr_table',
+  Pars      => 'a(n,m); float+ [o]c(m,m)',
+  HandleBad => 1,
+  Code      => '
+
+long N, M;
+N = $SIZE(n); M = $SIZE(m);
+$GENERIC(a) a_, b_;
+$GENERIC(c) ab, sa, sb, a2, b2, cov, va, vb, r;
+
+if (N >= 2 ) {
+  long i, j;
+  for (i=0; i<M; i++) {
+    for (j=i+1; j<M; j++) {
+      ab = 0; sa = 0; sb = 0; a2 = 0; b2 = 0;
+      loop (n) %{
+        a_ = $a(n=>n,m=>i);
+        b_ = $a(n=>n,m=>j);
+    	ab += a_ * b_;
+    	sa += a_;
+    	sb += b_;
+    	a2 += pow(a_, 2);
+    	b2 += pow(b_, 2);
+      %}
+      cov = ab - (sa * sb) / N;
+      va  = a2 - pow(sa,2) / N;
+      vb  = b2 - pow(sb,2) / N;
+      r   = cov / sqrt( va * vb );
+      $c(m0=>i, m1=>j) = r;
+      $c(m0=>j, m1=>i) = r;
+    }
+    $c(m0=>i, m1=>i) = 1.0;
+  }
+}
+else {
+  barf( "too few N" );
+}
+
+  ',
+  BadCode  => '
+
+if ($SIZE(n) >= 2 ) {
+  $GENERIC(a) a_, b_;
+  $GENERIC(c) ab, sa, sb, a2, b2, cov, va, vb, r;
+  long N, M, i, j;
+  M = $SIZE(m);
+  for (i=0; i<M; i++) {
+    for (j=i+1; j<M; j++) {
+      ab = 0; sa = 0; sb = 0; a2 = 0; b2 = 0; N=0;
+      loop (n) %{
+        if ($ISBAD($a(n=>n, m=>i)) || $ISBAD($a(n=>n, m=>j))) { }
+        else { 
+          a_ = $a(n=>n,m=>i);
+          b_ = $a(n=>n,m=>j);
+          ab += a_ * b_;
+          sa += a_;
+          sb += b_;
+          a2 += pow(a_, 2);
+          b2 += pow(b_, 2);
+          N ++;
+        }
+      %}
+      if (N>=2) {
+        cov = ab - (sa * sb) / N;
+        va  = a2 - pow(sa,2) / N;
+        vb  = b2 - pow(sb,2) / N;
+        r   = cov / sqrt( va * vb );
+        $c(m0=>i, m1=>j) = r;
+        $c(m0=>j, m1=>i) = r;
+      }
+      else {
+        $SETBAD($c(m0=>i, m1=>j));
+        $SETBAD($c(m0=>j, m1=>i));
+      }
+    }
+    N=0;
+    loop (n) %{
+      if ($ISGOOD($a(n=>n,m=>i)))
+        N ++;
+      if (N>=2)
+        break;
+    %}
+    if (N>=2) {  $c(m0=>i, m1=>i) = 1.0;  }
+    else      {  $SETBAD($c(m0=>i, m1=>i)); }
+  }
+}
+else {
+  barf( "too few N" );
+}
+
+  ',
+  Doc      => '
+
+=for ref
+
+Square Pearson correlation table. Gives the same result as threading using B<corr> but it calculates only half the square, hence much faster. And it is easier to use with higher dimension pdls.
+
+=for usage
+
+Usage:
+
+    # 5 obs x 3 var, 2 such data tables
+ 
+    perldl> $a = random 5, 3, 2
+    
+    perldl> p $a->corr_table
+    [
+     [
+     [          1 -0.69835951 -0.18549048]
+     [-0.69835951           1  0.72481605]
+     [-0.18549048  0.72481605           1]
+    ]
+    [
+     [          1  0.82722569 -0.71779883]
+     [ 0.82722569           1 -0.63938828]
+     [-0.71779883 -0.63938828           1]
+     ]
+    ]
+
+for the same result using B<corr>,
+
+    perldl> p $a->dummy(2)->corr($a->dummy(1)) 
+
+This is also how to use B<t_corr> and B<n_pair> with such a table.
+
+  ',
 
 );
 
@@ -605,8 +738,8 @@ pp_def('t_corr',
 
 =for usage
 
-    $corr   = $data->corr( $data->dummy(1,1) );
-    $n      = $data->n_pair( $data->dummy(1,1) );
+    $corr   = $data->corr( $data->dummy(1) );
+    $n      = $data->n_pair( $data->dummy(1) );
     $t_corr = $corr->t_corr( $n );
 
     use PDL::GSL::CDF;
@@ -631,7 +764,8 @@ pp_def('n_pair',
   BadCode   => '
     long N = 0;
     loop(n) %{
-      if ( $ISGOOD($a()) && $ISGOOD($b()) ) {
+      if ( $ISBAD($a()) || $ISBAD($b()) ) { }
+      else {
         N ++;
       }
     %}
@@ -641,7 +775,7 @@ pp_def('n_pair',
 
 =for ref
 
-returns the number of good pairs between 2 lists. useful with B<corr> (esp. when bad values are involved)
+Returns the number of good pairs between 2 lists. Useful with B<corr> (esp. when bad values are involved)
 
   ',
 
@@ -675,7 +809,8 @@ pp_def('corr_dev',
     ab = 0; a2 = 0; b2 = 0;
     long N = 0;
     loop (n) %{
-      if ($ISGOOD($a()) && $ISGOOD($b())) {
+      if ( $ISBAD($a()) || $ISBAD($b()) ) { }
+      else {
 	ab += $a() * $b();
 	a2 += pow($a(), 2);
 	b2 += pow($b(), 2);
@@ -700,7 +835,7 @@ pp_def('corr_dev',
 
 =for ref
 
-calculates correlations from B<dev_m> vals. seems faster than doing B<corr> from original vals when data pdl is big
+Calculates correlations from B<dev_m> vals. Seems faster than doing B<corr> from original vals when data pdl is big
 
   ',
 );
@@ -779,7 +914,7 @@ pp_def('t_test',
 
 =for ref
 
-independent sample t-test, assuming equal var.
+Independent sample t-test, assuming equal var.
 
   ',
 );
@@ -852,13 +987,13 @@ pp_def('t_test_nev',
   ',
   Doc       => '
 
+=for ref
+
+Independent sample t-test, NOT assuming equal var. ie Welch two sample t test. Df follows Welch-Satterthwaite equation instead of Satterthwaite (1946, as cited by Hays, 1994, 5th ed.). It matches GNumeric, which matches R.
+
 =for usage
 
     my ($t, $df) = $pdl1->t_test( $pdl2 );
-
-=for ref
-
-independent sample t-test, NOT assuming equal var. ie Welch two sample t test. Df follows Welch-Satterthwaite equation instead of Satterthwaite (1946, as cited by Hays, 1994, 5th ed.). It matches GNumeric, which matches R.
 
   ',
 );
@@ -890,7 +1025,8 @@ pp_def('t_test_paired',
     s_dif = 0; diff2 = 0;
     N = 0;
     loop (n) %{
-      if ( $ISGOOD($a()) && $ISGOOD($b()) ) {
+      if ( $ISBAD($a()) || $ISBAD($b()) ) { }
+      else {
         diff = $a() - $b();
         s_dif += diff;
 	diff2 += pow(diff, 2);
@@ -910,7 +1046,7 @@ pp_def('t_test_paired',
 
 =for ref
 
-paired sample t-test.
+Paired sample t-test.
 
   ',
 );

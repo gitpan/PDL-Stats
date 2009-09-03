@@ -110,6 +110,10 @@ P-values, where appropriate, are provided if PDL::GSL::CDF is installed.
 
 
 
+=for ref
+
+Replaces bad values with sample mean. Can be done inplace.
+
 =for usage
 
      perldl> p $data
@@ -123,10 +127,6 @@ P-values, where appropriate, are provided if PDL::GSL::CDF is installed.
       [      5     3.5       2     3.5]
       [      7       3       7 5.66667]
      ] 
-
-=for ref
-
-replaces bad values with sample mean. can be done inplace.
 
   
 
@@ -158,7 +158,7 @@ The output pdl badflag is cleared.
 
 =for ref
 
-Replaces bad values with random sample (with replacement) of good observations from the same variable. can be done inplace.
+Replaces bad values with random sample (with replacement) of good observations from the same variable. Can be done inplace.
 
 =for usage
 
@@ -205,7 +205,7 @@ The output pdl badflag is cleared.
 
 =for ref
 
-replaces values with deviations from the mean. can be done inplace.
+Replaces values with deviations from the mean. Can be done inplace.
 
   
 
@@ -236,7 +236,7 @@ It will set the bad-value flag of all output piddles if the flag is set for any 
 
 =for ref
 
-standardize ie replace values with z_scores based on sample standard deviation from the mean. can be done inplace.
+Standardize ie replace values with z_scores based on sample standard deviation from the mean. Can be done inplace.
 
   
 
@@ -268,7 +268,7 @@ It will set the bad-value flag of all output piddles if the flag is set for any 
 
 =for ref
 
-sum of squared errors between actual and predicted values.
+Sum of squared errors between actual and predicted values.
 
   
 
@@ -300,7 +300,7 @@ It will set the bad-value flag of all output piddles if the flag is set for any 
 
 =for ref
 
-mean of squared errors between actual and predicted values. ie variance around predicted value.
+Mean of squared errors between actual and predicted values, ie variance around predicted value.
 
   
 
@@ -332,7 +332,7 @@ It will set the bad-value flag of all output piddles if the flag is set for any 
 
 =for ref
 
-root mean squared error. stdv around predicted value.
+Root mean squared error, ie stdv around predicted value.
 
   
 
@@ -362,15 +362,15 @@ It will set the bad-value flag of all output piddles if the flag is set for any 
 
 
 
+=for ref
+
+Calculates predicted prob value for logistic regression.
+
 =for usage
 
     # glue constant then apply coeff returned by the logistic method
 
     $pred = $x->glue(1,ones($x->dim(0)))->pred_logistic( $m{b} );
-
-=for ref
-
-calculates predicted prob value for logistic regression.
 
   
 
@@ -438,7 +438,7 @@ It will set the bad-value flag of all output piddles if the flag is set for any 
 
     my $dm = $y->dm( $y_pred );
 
-    # null deviance
+      # null deviance
     my $d0 = $y->dm( ones($y->nelem) * $y->avg );
 
 =for ref
@@ -804,8 +804,6 @@ Usage:
     # IV for whether we baked the apple
     
     perldl> @b = qw( y y y y y y n n n n n n )
-
-    # 1st @ ref is ivs, 2nd @ ref is optional iv names
 
     perldl> %m = $y->anova( $a, \@b, { IVNM=>['apple', 'bake'] } )
     
@@ -1532,7 +1530,7 @@ sub _logistic_no_intercept {
 
 =for ref
 
-Principal component analysis. $data is pdl dim obs x var. output loading (corr between var and component) and score are pdls dim var x component. value and var are pdls dim component.
+Principal component analysis. $data is pdl dim obs x var. Output loading (corr between var and component) and score are pdls dim var x component. value and variance are pdls dim component.
 
 Based on corr instead of cov (bad values are ignored pair-wise. OK when bad values are few but otherwise probably should fill_m etc before pca). Use PDL::Slatec::eigsys() if installed, otherwise use PDL::MatrixOps::eigens_sym(). Added loadings and descending sorted component by $value (ie variance accouted for).
 
@@ -1561,9 +1559,7 @@ sub PDL::pca {
   );
   $opt and $opt{uc $_} = $opt->{$_} for (keys %$opt);
 
-  $self = $self->dev_m;
-
-  my $var_var = $self->corr_dev($self->dummy(1,1));
+  my $var_var = $self->corr_table;
 
     # value is axis pdl and score is var x axis
   my ($value, $score);
@@ -1592,7 +1588,7 @@ sub PDL::pca {
 
 =head2 pca_sorti
 
-Determine by which vars a component is best represented. Descending sort vars by size of association with that component. Returns sorted var index.
+Determine by which vars a component is best represented. Descending sort vars by size of association with that component. Returns sorted var and relevant component indices.
 
 =for options
 
@@ -1617,7 +1613,7 @@ Usage:
     perldl> ($iv, $ic) = $m{loading}->pca_sorti()
 
     perldl> p "$idv->[$_]\t" . $m{loading}->($_,$ic)->flat . "\n" for (list $iv)
-             #   COMP1     COMP2    COMP3    COMP4
+             #   COMP0     COMP1    COMP2    COMP3
     HAPPY	[0.860191 0.364911 0.174372 -0.10484]
     GOOD	[0.848694 0.303652 0.198378 -0.115177]
     CALM	[0.821177 -0.130542 0.396215 -0.125368]
@@ -1807,7 +1803,9 @@ Default options (case insensitive):
 
 Usage:
 
-    $var->plot_scree;    # $var should be in descending order
+    # variance should be in descending order
+ 
+    $pca{var}->plot_scree( {ncomp=>16} );
 
 =cut
 

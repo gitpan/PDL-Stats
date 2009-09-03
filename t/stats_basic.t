@@ -5,7 +5,7 @@ use warnings;
 use Test::More;
 
 BEGIN {
-    plan tests => 44;
+    plan tests => 46;
 }
 
 use PDL::LiteF;
@@ -102,4 +102,13 @@ is( tapprox( $df, 3 ), 1 );
   my ($data, $idv, $ido) = get_data('t/t_try', {V=>0});
   is( tapprox( sum(pdl($data->dims) - pdl(14, 5)), 0 ), 1 );
   is( tapprox( $data->sum / $data->nbad, 1.70731707317073 ), 1 );
+}
+
+  # 45-46
+{
+  my $a = random 10, 3;
+  is( tapprox( sum($a->corr_table - $a->corr($a->dummy(1))), 0 ), 1 );
+
+  $a->setbadat(4,0);
+  is( tapprox( sum($a->corr_table - $a->corr($a->dummy(1))), 0 ), 1 );
 }

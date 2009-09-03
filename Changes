@@ -1,5 +1,11 @@
 Revision history for PDL-Stats
 
+0.2.4   09/02/2009
+        added corr_table in PDL::Stats::Basic.
+        PDL::Stats::GLM::pca uses corr_table.
+        kmeans no longer quits with empty cluster. kmeans threading bug fix.
+        use short-circuit ISBAD(a) || ISBAD(b) instead of ISGOOD(a) && ISGOOD(b) in bad value processing.
+
 0.2.3   08/24/2009
         ***anova interface change*** IV names now passed in \%opt instead of @ ref. I appologize for the interface change, but it matches the new method plot_means, and makes it easier to pass IVs themselves. I promise that such interface changes will be extremely rare, if at all.
         anova now supports bad value in DV.

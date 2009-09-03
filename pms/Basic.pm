@@ -4,7 +4,7 @@
 #
 package PDL::Stats::Basic;
 
-@EXPORT_OK  = qw(  get_data which_id PDL::PP stdv PDL::PP stdv_unbiased PDL::PP var PDL::PP var_unbiased PDL::PP se PDL::PP ss PDL::PP skew PDL::PP skew_unbiased PDL::PP kurt PDL::PP kurt_unbiased PDL::PP cov PDL::PP corr PDL::PP t_corr PDL::PP n_pair PDL::PP corr_dev PDL::PP t_test PDL::PP t_test_nev PDL::PP t_test_paired );
+@EXPORT_OK  = qw(  get_data which_id PDL::PP stdv PDL::PP stdv_unbiased PDL::PP var PDL::PP var_unbiased PDL::PP se PDL::PP ss PDL::PP skew PDL::PP skew_unbiased PDL::PP kurt PDL::PP kurt_unbiased PDL::PP cov PDL::PP corr PDL::PP corr_table PDL::PP t_corr PDL::PP n_pair PDL::PP corr_dev PDL::PP t_test PDL::PP t_test_nev PDL::PP t_test_paired );
 %EXPORT_TAGS = (Func=>[@EXPORT_OK]);
 
 use PDL::Core;
@@ -203,16 +203,16 @@ It will set the bad-value flag of all output piddles if the flag is set for any 
 
 
 
+=for ref
+
+Standard error of the mean. Useful for calculating confidence intervals.
+
 =for usage
 
     # 95% confidence interval for samples with large N
 
     $ci_95_upper = $data->average + 1.96 * $data->se;
     $ci_95_lower = $data->average - 1.96 * $data->se;
-
-=for ref
-
-Standard error of the mean. Useful for calculating confidence intervals.
 
   
 
@@ -244,7 +244,7 @@ It will set the bad-value flag of all output piddles if the flag is set for any 
 
 =for ref
 
-sum of squared deviations from the mean
+Sum of squared deviations from the mean.
 
   
 
@@ -276,7 +276,7 @@ It will set the bad-value flag of all output piddles if the flag is set for any 
 
 =for ref
 
-sample skewness. measure of asymmetry in data. skewness == 0 for normal distribution.
+Sample skewness, measure of asymmetry in data. skewness == 0 for normal distribution.
 
   
 
@@ -308,7 +308,7 @@ It will set the bad-value flag of all output piddles if the flag is set for any 
 
 =for ref
 
-unbiased estimate of population skewness. this is the number in GNumeric Descriptive Statistics.
+Unbiased estimate of population skewness. This is the number in GNumeric Descriptive Statistics.
 
   
 
@@ -340,7 +340,7 @@ It will set the bad-value flag of all output piddles if the flag is set for any 
 
 =for ref
 
-sample kurtosis. measure of "peakedness" of data. kurtosis == 0 for normal distribution. 
+Sample kurtosis, measure of "peakedness" of data. kurtosis == 0 for normal distribution. 
 
   
 
@@ -372,7 +372,7 @@ It will set the bad-value flag of all output piddles if the flag is set for any 
 
 =for ref
 
-unbiased estimate of population kurtosis. this is the number in GNumeric Descriptive Statistics.
+Unbiased estimate of population kurtosis. This is the number in GNumeric Descriptive Statistics.
 
   
 
@@ -404,7 +404,7 @@ It will set the bad-value flag of all output piddles if the flag is set for any 
 
 =for ref
 
-sample covariance. see B<corr> for ways to call
+Sample covariance. see B<corr> for ways to call
 
   
 
@@ -434,7 +434,13 @@ It will set the bad-value flag of all output piddles if the flag is set for any 
 
 
 
+=for ref
+
+Pearson correlation coefficient. r = cov(X,Y) / (stdv(X) * stdv(Y)).
+
 =for usage 
+
+Usage:
 
     perldl> $a = random 5, 3
     perldl> $b = sequence 5,3
@@ -444,7 +450,7 @@ It will set the bad-value flag of all output piddles if the flag is set for any 
 
 for square corr table
 
-    perldl> p $a->corr($a->dummy(1,1))
+    perldl> p $a->corr($a->dummy(1))
 
     [
      [           1  -0.41995259 -0.029301192]
@@ -452,9 +458,7 @@ for square corr table
      [-0.029301192  -0.61927619            1]
     ]
 
-=for ref
-
-pearson correlation coefficient. r = cov(X,Y) / (stdv(X) * stdv(Y)).
+but it is easier and faster to use B<corr_table>.
 
   
 
@@ -476,6 +480,66 @@ It will set the bad-value flag of all output piddles if the flag is set for any 
 
 
 
+=head2 corr_table
+
+=for sig
+
+  Signature: (a(n,m); float+ [o]c(m,m))
+
+
+
+=for ref
+
+Square Pearson correlation table. Gives the same result as threading using B<corr> but it calculates only half the square, hence much faster. And it is easier to use with higher dimension pdls.
+
+=for usage
+
+Usage:
+
+    # 5 obs x 3 var, 2 such data tables
+ 
+    perldl> $a = random 5, 3, 2
+    
+    perldl> p $a->corr_table
+    [
+     [
+     [          1 -0.69835951 -0.18549048]
+     [-0.69835951           1  0.72481605]
+     [-0.18549048  0.72481605           1]
+    ]
+    [
+     [          1  0.82722569 -0.71779883]
+     [ 0.82722569           1 -0.63938828]
+     [-0.71779883 -0.63938828           1]
+     ]
+    ]
+
+for the same result using B<corr>,
+
+    perldl> p $a->dummy(2)->corr($a->dummy(1)) 
+
+This is also how to use B<t_corr> and B<n_pair> with such a table.
+
+  
+
+=for bad
+
+corr_table does handle bad values.
+It will set the bad-value flag of all output piddles if the flag is set for any of the input piddles.
+
+
+=cut
+
+
+
+
+
+
+*corr_table = \&PDL::corr_table;
+
+
+
+
 =head2 t_corr
 
 =for sig
@@ -486,8 +550,8 @@ It will set the bad-value flag of all output piddles if the flag is set for any 
 
 =for usage
 
-    $corr   = $data->corr( $data->dummy(1,1) );
-    $n      = $data->n_pair( $data->dummy(1,1) );
+    $corr   = $data->corr( $data->dummy(1) );
+    $n      = $data->n_pair( $data->dummy(1) );
     $t_corr = $corr->t_corr( $n );
 
     use PDL::GSL::CDF;
@@ -528,7 +592,7 @@ It will set the bad-value flag of all output piddles if the flag is set for any 
 
 =for ref
 
-returns the number of good pairs between 2 lists. useful with B<corr> (esp. when bad values are involved)
+Returns the number of good pairs between 2 lists. Useful with B<corr> (esp. when bad values are involved)
 
   
 
@@ -564,7 +628,7 @@ It will set the bad-value flag of all output piddles if the flag is set for any 
 
 =for ref
 
-calculates correlations from B<dev_m> vals. seems faster than doing B<corr> from original vals when data pdl is big
+Calculates correlations from B<dev_m> vals. Seems faster than doing B<corr> from original vals when data pdl is big
 
   
 
@@ -604,7 +668,7 @@ It will set the bad-value flag of all output piddles if the flag is set for any 
 
 =for ref
 
-independent sample t-test, assuming equal var.
+Independent sample t-test, assuming equal var.
 
   
 
@@ -634,13 +698,13 @@ It will set the bad-value flag of all output piddles if the flag is set for any 
 
 
 
+=for ref
+
+Independent sample t-test, NOT assuming equal var. ie Welch two sample t test. Df follows Welch-Satterthwaite equation instead of Satterthwaite (1946, as cited by Hays, 1994, 5th ed.). It matches GNumeric, which matches R.
+
 =for usage
 
     my ($t, $df) = $pdl1->t_test( $pdl2 );
-
-=for ref
-
-independent sample t-test, NOT assuming equal var. ie Welch two sample t test. Df follows Welch-Satterthwaite equation instead of Satterthwaite (1946, as cited by Hays, 1994, 5th ed.). It matches GNumeric, which matches R.
 
   
 
@@ -672,7 +736,7 @@ It will set the bad-value flag of all output piddles if the flag is set for any 
 
 =for ref
 
-paired sample t-test.
+Paired sample t-test.
 
   
 

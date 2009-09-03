@@ -85,7 +85,7 @@ pp_addpm( <<'EOD' );
 
 =for ref
 
-creates masks for random mutually exclusive clusters. accepts two parameters, num_obs and num_cluster. extra parameter turns into extra dim in mask. may loop a long time if num_cluster approaches num_obs because empty cluster is not allowed.
+Creates masks for random mutually exclusive clusters. Accepts two parameters, num_obs and num_cluster. Extra parameter turns into extra dim in mask. May loop a long time if num_cluster approaches num_obs because empty cluster is not allowed.
 
 =for usage
 
@@ -170,7 +170,8 @@ loop (o) %{
     ssc = 0;
     nvc = 0;
     loop (v) %{
-      if ($ISGOOD( $data() ) && $ISGOOD( $centroid() )) {
+      if ($ISBAD( $data() ) || $ISBAD( $centroid() )) {  }
+      else {
         ssc += pow($data() - $centroid(), 2);
         nvc ++;
       }
@@ -204,7 +205,7 @@ loop (o) %{
 
 =for ref
 
-takes data pdl dim [obs x var] and centroid pdl dim [cluster x var] and returns mask dim [obs x cluster] to cluster membership. an obs is assigned to the first cluster with the smallest distance (ie sum squared error) to cluster centroid. with bad value, obs is assigned by smallest mean squared error across variables.
+Takes data pdl dim [obs x var] and centroid pdl dim [cluster x var] and returns mask dim [obs x cluster] to cluster membership. An obs is assigned to the first cluster with the smallest distance (ie sum squared error) to cluster centroid. With bad value, obs is assigned by smallest mean squared error across variables.
 
 =for usage
 
@@ -266,7 +267,11 @@ loop (c) %{
     %}
   }
   else {
-    barf("please make sure there is no empty cluster!");
+    loop (v) %{
+      $m() = 0;
+      $ss() = 0;
+    %}
+/*    barf("please make sure there is no empty cluster!");  */
   }
 %}
 
@@ -282,15 +287,16 @@ loop (c) %{
     n[c][v]  = 0;
   %}
   loop (o) %{
-    if ($ISGOOD($cluster()) && $cluster()) {
+    if ($ISBAD($cluster()) || !$cluster()) { }
+    else {
       loop (v) %{
         if ($ISGOOD( $data() )) {
           s[c][v]  += $data();
           s2[c][v] += pow($data(), 2);
           n[c][v]  ++;
         }
-      }
-    %}
+      %}
+    }
   %}
 
   loop (v) %{
@@ -299,8 +305,10 @@ loop (c) %{
       $ss() = s2[c][v] / n[c][v] - pow(s[c][v] / n[c][v], 2);
     }
     else {
-      $SETBAD($m());
-      $SETBAD($ss());
+      loop (v) %{
+        $m() = 0;
+        $ss() = 0;
+      %}
     }
   %}
 %}
@@ -309,7 +317,7 @@ loop (c) %{
   Doc   => '
 =for ref
 
-takes data dim [obs x var] and mask dim [obs x cluster] and returns average value and ss (ms when data contains bad values) dim [cluster x var] for data where mask = 1. multiple cluster membership for an obs is fine but quits if run into empty cluster ie no qualified element in a mask.
+Takes data dim [obs x var] and mask dim [obs x cluster], returns mean and ss (ms when data contains bad values) dim [cluster x var], using data where mask = 1. Multiple cluster membership for an obs is okay. If a cluster is empty all means and ss are set to zero for that cluster.
 
 =for usage
 
@@ -384,7 +392,7 @@ Usage:
 
     # suppose we have 4 person's ratings on 5 movies
 
-    perldl> p $rating = ushort( ceil( random(4, 5) * 5 ) ) 
+    perldl> p $rating = ceil( random(4, 5) * 5 ) 
     [
      [3 2 2 3]
      [2 4 5 4]
@@ -518,8 +526,8 @@ sub PDL::kmeans {
       $ss_ms   => PDL::squeeze( $ss_cv ),
     );
 
-    # xchg(-1,0) leaves it as was if single dim--unlike transpose
-  my $i_best = $R2_this->dummy(0)->xchg(-1,0)->maximum_ind;
+    # xchg/mv(-1,0) leaves it as was if single dim--unlike transpose
+  my $i_best = $R2_this->mv(-1,0)->maximum_ind;
 
   $R2_this->getndims == 1 and
     return (
@@ -545,20 +553,20 @@ sub PDL::kmeans {
     push @shapes, \@dims;
   }
 
-  $cluster = $cluster->clump(2..$cluster->ndims-2)->sever->clump(3,2)->dice_axis(-1,\@i_best)->reshape( @{ $shapes[1] } )->sever,
+  $cluster = $cluster->mv(-1,2)->clump(2..$cluster->ndims-1)->dice_axis(2,\@i_best)->reshape( @{ $shapes[1] } )->sever,
 
   return (
     centroid =>
-$centroid->clump(2..$centroid->ndims-2)->sever->clump(3,2)->dice_axis(-1,\@i_best)->reshape( @{ $shapes[0] } )->sever,
+$centroid->mv(-1,2)->clump(2..$centroid->ndims-1)->dice_axis(2,\@i_best)->reshape( @{ $shapes[0] } )->sever,
 
     cluster  => $cluster,
     n        => $cluster->sumover,
 
     R2       =>
-$R2_this->clump(0..$R2_this->ndims-2)->sever->clump(1,0)->dice_axis(-1,\@i_best)->reshape( @{ $shapes[2] } )->sever,
+$R2_this->mv(-1,0)->clump(0..$R2_this->ndims-1)->dice_axis(0,\@i_best)->reshape( @{ $shapes[2] } )->sever,
 
     $ss_ms   => 
-$ss_cv->clump(2..$ss_cv->ndims-2)->sever->clump(3,2)->dice_axis(-1,\@i_best)->reshape( @{ $shapes[0] } )->sever,
+$ss_cv->mv(-1,2)->clump(2..$ss_cv->ndims-1)->dice_axis(2,\@i_best)->reshape( @{ $shapes[0] } )->sever,
   ); 
 }
 

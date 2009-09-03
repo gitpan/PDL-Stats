@@ -118,6 +118,10 @@ pp_def('fill_m',
   ',
   Doc      => '
 
+=for ref
+
+Replaces bad values with sample mean. Can be done inplace.
+
 =for usage
 
      perldl> p $data
@@ -131,10 +135,6 @@ pp_def('fill_m',
       [      5     3.5       2     3.5]
       [      7       3       7 5.66667]
      ] 
-
-=for ref
-
-replaces bad values with sample mean. can be done inplace.
 
   ',
   BadDoc  => '
@@ -185,7 +185,7 @@ pp_def('fill_rand',
 
 =for ref
 
-Replaces bad values with random sample (with replacement) of good observations from the same variable. can be done inplace.
+Replaces bad values with random sample (with replacement) of good observations from the same variable. Can be done inplace.
 
 =for usage
 
@@ -250,7 +250,7 @@ pp_def('dev_m',
 
 =for ref
 
-replaces values with deviations from the mean. can be done inplace.
+Replaces values with deviations from the mean. Can be done inplace.
 
   ',
 
@@ -300,7 +300,7 @@ pp_def('stddz',
   Doc       => '
 =for ref
 
-standardize ie replace values with z_scores based on sample standard deviation from the mean. can be done inplace.
+Standardize ie replace values with z_scores based on sample standard deviation from the mean. Can be done inplace.
 
   ',
 
@@ -320,7 +320,8 @@ pp_def('sse',
   BadCode  => '
     $GENERIC(c) ss = 0;
     loop (n) %{
-      if ( $ISGOOD($a()) && $ISGOOD($b()) ) {
+      if ( $ISBAD($a()) || $ISBAD($b()) ) { }
+      else {
         ss += pow($a() - $b(), 2);
       }
     %}
@@ -330,7 +331,7 @@ pp_def('sse',
 
 =for ref
 
-sum of squared errors between actual and predicted values.
+Sum of squared errors between actual and predicted values.
 
   ',
 
@@ -351,7 +352,8 @@ pp_def('mse',
     $GENERIC(c) ss = 0;
     long N = 0;
     loop (n) %{
-      if ( $ISGOOD($a()) && $ISGOOD($b()) ) {
+      if ( $ISBAD($a()) || $ISBAD($b()) ) { }
+      else {
         ss += pow($a() - $b(), 2);
         N ++;
       }
@@ -362,7 +364,7 @@ pp_def('mse',
 
 =for ref
 
-mean of squared errors between actual and predicted values. ie variance around predicted value.
+Mean of squared errors between actual and predicted values, ie variance around predicted value.
 
   ',
 
@@ -387,7 +389,8 @@ pp_def('rmse',
     d2 = 0;
     long N = 0;
     loop (n) %{
-      if ( $ISGOOD($a()) && $ISGOOD($b()) ) {
+      if ( $ISBAD($a()) || $ISBAD($b()) ) { }
+      else {
         d2 += pow($a() - $b(), 2);
 	N  ++;
       }
@@ -398,7 +401,7 @@ pp_def('rmse',
 
 =for ref
 
-root mean squared error. stdv around predicted value.
+Root mean squared error, ie stdv around predicted value.
 
   ',
 
@@ -422,11 +425,11 @@ pp_def('pred_logistic',
       $GENERIC(c) l = 0;
       long bad = 0;
       loop (m) %{
-        if ( $ISGOOD($a()) && $ISGOOD($b()) ) {
-          l += $a() * $b();
+        if ( $ISBAD($a()) || $ISBAD($b()) ) {
+          bad = 1;
         }
         else {
-          bad = 1;
+          l += $a() * $b();
         }
       %}
       if (bad) { $SETBAD( $c() ); }
@@ -435,15 +438,15 @@ pp_def('pred_logistic',
   ',
   Doc      => '
 
+=for ref
+
+Calculates predicted prob value for logistic regression.
+
 =for usage
 
     # glue constant then apply coeff returned by the logistic method
 
     $pred = $x->glue(1,ones($x->dim(0)))->pred_logistic( $m{b} );
-
-=for ref
-
-calculates predicted prob value for logistic regression.
 
   ',
 
@@ -512,7 +515,8 @@ pp_def('dm',
     $GENERIC(c) ll;
     ll = 0;
     loop (n) %{
-      if ( $ISGOOD(a()) && $ISGOOD(b()) ) {
+      if ( $ISBAD($a()) || $ISBAD($b()) ) { }
+      else {
         ll += $a()? log( $b() ) : log( 1 - $b() );
       }
     %}
@@ -523,7 +527,7 @@ pp_def('dm',
 
     my $dm = $y->dm( $y_pred );
 
-    # null deviance
+      # null deviance
     my $d0 = $y->dm( ones($y->nelem) * $y->avg );
 
 =for ref
@@ -545,13 +549,13 @@ pp_def('dvrs',
          ;
   ',
   BadCode  => '
-  if ( $ISGOOD($a()) && $ISGOOD($b()) ) {
+  if ( $ISBAD($a()) || $ISBAD($b()) ) {
+    $SETBAD( $c() );
+  }
+  else {
     $c() = $a()?       sqrt( -2 * log($b()) )
          :        -1 * sqrt( -2 * log(1-$b()) )
          ;
-  }
-  else {
-    $SETBAD( $c() );
   }
 
   ',
@@ -876,8 +880,6 @@ Usage:
     # IV for whether we baked the apple
     
     perldl> @b = qw( y y y y y y n n n n n n )
-
-    # 1st @ ref is ivs, 2nd @ ref is optional iv names
 
     perldl> %m = $y->anova( $a, \@b, { IVNM=>['apple', 'bake'] } )
     
@@ -1604,7 +1606,7 @@ sub _logistic_no_intercept {
 
 =for ref
 
-Principal component analysis. $data is pdl dim obs x var. output loading (corr between var and component) and score are pdls dim var x component. value and var are pdls dim component.
+Principal component analysis. $data is pdl dim obs x var. Output loading (corr between var and component) and score are pdls dim var x component. value and variance are pdls dim component.
 
 Based on corr instead of cov (bad values are ignored pair-wise. OK when bad values are few but otherwise probably should fill_m etc before pca). Use PDL::Slatec::eigsys() if installed, otherwise use PDL::MatrixOps::eigens_sym(). Added loadings and descending sorted component by $value (ie variance accouted for).
 
@@ -1633,9 +1635,7 @@ sub PDL::pca {
   );
   $opt and $opt{uc $_} = $opt->{$_} for (keys %$opt);
 
-  $self = $self->dev_m;
-
-  my $var_var = $self->corr_dev($self->dummy(1,1));
+  my $var_var = $self->corr_table;
 
     # value is axis pdl and score is var x axis
   my ($value, $score);
@@ -1664,7 +1664,7 @@ sub PDL::pca {
 
 =head2 pca_sorti
 
-Determine by which vars a component is best represented. Descending sort vars by size of association with that component. Returns sorted var index.
+Determine by which vars a component is best represented. Descending sort vars by size of association with that component. Returns sorted var and relevant component indices.
 
 =for options
 
@@ -1689,7 +1689,7 @@ Usage:
     perldl> ($iv, $ic) = $m{loading}->pca_sorti()
 
     perldl> p "$idv->[$_]\t" . $m{loading}->($_,$ic)->flat . "\n" for (list $iv)
-             #   COMP1     COMP2    COMP3    COMP4
+             #   COMP0     COMP1    COMP2    COMP3
     HAPPY	[0.860191 0.364911 0.174372 -0.10484]
     GOOD	[0.848694 0.303652 0.198378 -0.115177]
     CALM	[0.821177 -0.130542 0.396215 -0.125368]
@@ -1879,7 +1879,9 @@ Default options (case insensitive):
 
 Usage:
 
-    $var->plot_scree;    # $var should be in descending order
+    # variance should be in descending order
+ 
+    $pca{var}->plot_scree( {ncomp=>16} );
 
 =cut
 
