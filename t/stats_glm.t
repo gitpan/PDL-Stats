@@ -5,7 +5,7 @@ use warnings;
 use Test::More;
 
 BEGIN {
-    plan tests => 32;
+    plan tests => 33;
       # 1-2
     use_ok( 'PDL::Stats::Basic' );
     use_ok( 'PDL::Stats::GLM' );
@@ -197,6 +197,20 @@ sub t_anova {
   my $ans_m = pdl([qw(8 18 38 53)], [qw(8 23 38 53)]);
   return  sum( pdl( @m{'| A | F', '| A ~ B ~ C | F'} ) - $ans_F )
         + sum( $m{'# A ~ B ~ C # m'}->(,2,)->squeeze - $ans_m )
+  ;
+}
+
+is( tapprox( t_anova_1way(), 0 ), 1 );
+sub t_anova_1way {
+  my $d = pdl qw( 3 2 1 5 2 1 5 3 1 4 1 2 3 5 5 );
+  my $a = qsort sequence(15) % 3;
+  my %m = $d->anova($a, {plot=>0});
+  my $ans_F  = 0.160919540229886;
+  my $ans_ms = 0.466666666666669;
+  my $ans_m = pdl(qw( 2.6 2.8 3.2 ));
+  return  ($m{F} - $ans_F)
+        + ($m{ms_model} - $ans_ms )
+        + sum( $m{'# IV_0 # m'}->squeeze - $ans_m )
   ;
 }
 

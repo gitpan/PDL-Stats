@@ -515,7 +515,7 @@ Usage:
     # DV, 2 person's ratings for top-10 box office movies
     # ascending sorted by box office numbers
 
-    perldl> p $y = qsort ushort( ceil( random(10, 2)*5 ) )    
+    perldl> p $y = qsort ceil( random(10, 2)*5 )    
     [
      [1 1 2 4 4 4 4 5 5 5]
      [1 2 2 2 3 3 3 3 5 5]
@@ -706,7 +706,7 @@ Usage:
     # suppose these are two persons' ratings for top 10 box office movies
     # ascending sorted by box office
 
-    perldl> p $y = qsort ushort( ceil(random(10, 2) * 5) )
+    perldl> p $y = qsort ceil(random(10, 2) * 5)
     [
      [1 1 2 2 2 3 4 4 4 4]
      [1 2 2 3 3 3 4 4 5 5]
@@ -793,7 +793,7 @@ Usage:
 
     # suppose this is ratings for 12 apples
 
-    perldl> p $y = qsort ushort( ceil( random(12)*5 ) )
+    perldl> p $y = qsort ceil( random(12)*5 )
     [1 1 2 2 2 3 3 4 4 4 5 5]
     
     # IV for types of apple
@@ -923,14 +923,20 @@ sub PDL::anova {
   # get IV ss from $ivs_ref instead of $ivs pdl
 
   for my $k (0 .. $#$ivs_ref) {
-    my @G = grep { $_ != $k } (0 .. $#$ivs_ref);
-    my $G = PDL->null->glue( 1, @$ivs_ref[@G] );
-    $G = $G->glue(1, ones $G->dim(0));
-
-    my $b_G = $self->ols_t( $G, {CONST=>0} );
+    my (@G, $G, $b_G);
+    @G = grep { $_ != $k } (0 .. $#$ivs_ref);
+ 
+    if (@G) {
+      $G = PDL->null->glue( 1, @$ivs_ref[@G] );
+      $G = $G->glue(1, ones $G->dim(0));
+    }
+    else {
+      $G = ones( $self->dim(0) );
+    }
+    $b_G = $self->ols_t( $G, {CONST=>0} );
 
     $ret{ "| $idv->[$k] | ss" }
-      = $self->sse( sumover($b_G * $G->xchg(0,1)) ) - $ret{ss_residual};
+      = $self->sse( sumover($b_G * $G->transpose) ) - $ret{ss_residual};
     $ret{ "| $idv->[$k] | F_df" }
       = pdl( $ivs_ref->[$k]->dim(1), $ret{F_df}->(1)->copy )->squeeze;
     $ret{ "| $idv->[$k] | ms" }
@@ -1094,7 +1100,7 @@ sub _combinations {
 
 =for ref
 
-dummy coding of nominal variable (perl @ ref or 1d pdl) for use in regression.
+Dummy coding of nominal variable (perl @ ref or 1d pdl) for use in regression.
 
 =for usage
 
@@ -1119,7 +1125,7 @@ sub dummy_code {
 
 =for ref
 
-Unweighted effect coding of nominal variable (perl @ ref or 1d pdl) for use in regression. returns in @ context coded pdl and % ref to level - pdl->dim(1) index. note that the last level is not explicitly coded in pdl
+Unweighted effect coding of nominal variable (perl @ ref or 1d pdl) for use in regression. returns in @ context coded pdl and % ref to level - pdl->dim(1) index.
 
 =for usage
 
@@ -1169,7 +1175,7 @@ sub PDL::effect_code {
 
 =for ref
 
-weighted effect code for nominal variable. returns in @ context coded pdl and % ref to level - pdl->dim(1) index. note that the last level is not explicitly coded in pdl
+Weighted effect code for nominal variable. returns in @ context coded pdl and % ref to level - pdl->dim(1) index.
 
 =for usage
 
@@ -1222,7 +1228,7 @@ Usage:
     # suppose this is a person's ratings for top 10 box office movies
     # ascending sorted by box office
 
-    perldl> p $y = qsort ushort( ceil(random(10) * 5) )
+    perldl> p $y = qsort ceil( random(10) * 5 )
     [1 1 2 2 2 2 4 4 5 5]
 
     # construct IV with linear and quadratic component
@@ -1372,7 +1378,7 @@ Usage:
     # suppose this is whether a person had rented 10 movies
     # ascending sorted by box office
 
-    perldl> p $y = qsort( ushort( random(10)*2 ) )
+    perldl> p $y = qsort ushort( random(10)*2 )
     [0 0 0 0 0 0 1 1 1 1]
    
     # IV is box office ranking
@@ -1723,6 +1729,7 @@ sub PDL::plot_means {
     # put var w least levels on diff panels
   my @iD = 0..3;
   my @dims = (1, 1, 1, 1);
+    # splice ARRAY,OFFSET,LENGTH,LIST
   splice @dims, 0, $self->ndims, $self->dims;
   $self = $self->reshape(@dims)->sever;
   $se = $se->reshape(@dims)->sever
@@ -1730,8 +1737,10 @@ sub PDL::plot_means {
   @iD = reverse list qsorti pdl @dims
     if $opt{AUTO};
 
-  my $nx = $self->dim($iD[2]);
-  my $ny = $self->dim($iD[3]);
+    # $iD[0] on x axis
+    # $iD[1] as separate lines
+  my $nx = $self->dim($iD[2]);    # n xpanels
+  my $ny = $self->dim($iD[3]);    # n ypanels
   
   my $w = $opt{WIN};
   if (!defined $w) {
@@ -1756,7 +1765,8 @@ sub PDL::plot_means {
   
       my (@legend, @color);
       for (0 .. $self->dim($iD[1]) - 1) {
-        push @legend, $opt{IVNM}->[$iD[1]] . " $_";
+        push @legend, $opt{IVNM}->[$iD[1]] . " $_"
+          if ($self->dim($iD[1]) > 1);
         push @color, $_ + 2;    # start from red
         $w->points( sequence($self->dim($iD[0])),
         $self->dice_axis($iD[3],$y)->dice_axis($iD[2],$x)->dice_axis($iD[1],$_),
@@ -1853,11 +1863,13 @@ L<PDL::Fit::LM>
 
 =head1 REFERENCES
 
-Cohen, J., Cohen, P., West, S.G., & Aiken, L.S. (2003). Applied multiple regression/correlation analysis for the behavioral sciences (3rd ed.). Mahwah, NJ: Lawrence Erlbaum Associates Publishers.
+Cohen, J., Cohen, P., West, S.G., & Aiken, L.S. (2003). Applied Multiple Regression/correlation Analysis for the Behavioral Sciences (3rd ed.). Mahwah, NJ: Lawrence Erlbaum Associates Publishers.
 
-Hosmer, D.W., & Lemeshow, S. (2000). Applied logistic regression (2nd ed.). New York, NY: Wiley-Interscience. 
+Hosmer, D.W., & Lemeshow, S. (2000). Applied Logistic Regression (2nd ed.). New York, NY: Wiley-Interscience. 
 
 Osgood C.E., Suci, G.J., & Tannenbaum, P.H. (1957). The Measurement of Meaning. Champaign, IL: University of Illinois Press.
+
+Rutherford, A. (2001). Introducing Anova and Ancova: A GLM Approach (1st ed.). Thousand Oaks, CA: Sage Publications.
 
 The GLM procedure: unbalanced ANOVA for two-way design with interaction. (2008). SAS/STAT(R) 9.2 User's Guide. Retrieved June 18, 2009 from http://support.sas.com/
 

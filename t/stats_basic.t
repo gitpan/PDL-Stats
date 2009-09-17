@@ -9,6 +9,7 @@ BEGIN {
 }
 
 use PDL::LiteF;
+use PDL::NiceSlice;
 use PDL::Stats::Basic;
 
 sub tapprox {

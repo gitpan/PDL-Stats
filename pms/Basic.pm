@@ -863,13 +863,20 @@ sub get_data {
 
 =for ref
 
-Lookup specified var (obs) id in $idv ($ido) (see B<get_data>) and return index in $idv as pdl if found. Useful for selecting data by var (obs) id.
+Lookup specified var (obs) id in $idv ($ido) (see B<get_data>) and return index in $idv ($ido) as pdl if found. Useful for selecting data by var (obs) id.
 
 =for usage
 
-    my $ind = which_id $ido, ['2c_1', 'vq_1'];
+    my $ind = which_id $ido, ['smith', 'summers', 'tesla'];
 
     my $data_subset = $data( $ind, );
+
+    # take advantage of perl pattern matching
+    # e.g. use data from people whose last name starts with s
+
+    my $i = which_id $ido, [ grep { /^s/ } @$ido ];
+
+    my $data_s = $data($i, );
 
 =cut
 

@@ -381,7 +381,7 @@ Default options (case insensitive):
     CNTRD   => PDL->null,  # clu x var. optional. disables next 3 opts
 
     NTRY    => 5,          # num of seeding rounds
-    NSEED   => 1000,       # num of starting seeds, use n obs up to NSEED
+    NSEED   => 1000,       # num of initial seeds, use NSEED up to max obs
     NCLUS   => 8,          # num of clusters
 
     R2CRT   => .001,       # stop criterion for R2 change
@@ -408,46 +408,46 @@ Usage:
     # by default prints back options used
     # as well as info for all tries and iterations
 
-    CNTRD   => Null
-    FULL    => 0
-    NCLUS   => 2
-    NSEED   => 1000
-    NTRY    => 5
-    R2CRT   => 0.001
-    V       => 1
-    ss/ms total:    20.5
-    iter 0 R2 [0.46341463 0.46341463 0.46341463 0.46341463 0.024390244]
-    iter 1 R2 [0.46341463 0.46341463 0.46341463 0.46341463 0.46341463]
+    CNTRD	=> Null
+    FULL	=> 0
+    NCLUS	=> 2
+    NSEED	=> 4
+    NTRY	=> 5
+    R2CRT	=> 0.001
+    V	        => 1
+    ss total:	20.5
+    iter 0 R2 [0.024390244 0.024390244 0.26829268  0.4796748  0.4796748]
+    iter 1 R2 [0.46341463 0.46341463  0.4796748  0.4796748  0.4796748]
 
     perldl> p "$_\t$k{$_}\n" for (sort keys %k)
 
-    R2      0.463414634146341
-    centroid    # mean ratings for 2 group x 5 movies
+    R2      0.479674796747968
+    centroid       # mean ratings for 2 group x 5 movies
     [
-     [  2   3]
-     [4.5   3]
-     [2.5   4]
-     [  2   4]
-     [  3   3]
+     [         3  2.3333333]
+     [         2  4.3333333]
+     [         5  2.6666667]
+     [         3          3]
+     [         4  2.6666667]
+    ]
+ 
+    cluster        # 4 persons' membership in two groups
+    [
+     [1 0 0 0]
+     [0 1 1 1]
     ]
     
-    cluster    # 4 persons' membership in two groups
-    [
-     [0 1 1 0]
-     [1 0 0 1]
-    ]
-    
-    n       [2 2]  # cluster size
+    n       [1 3]  # cluster size
     ss
     [
-     [  0   0]
-     [0.5   2]
-     [0.5   2]
-     [  2   2]
-     [  0   2]
+     [         0 0.66666667]
+     [         0 0.66666667]
+     [         0 0.66666667]
+     [         0          8]
+     [         0 0.66666667]
     ]
 
-Now, for the valiant, kmeans is threadable. Say you gathered 10 persons' ratings on 5 movies from 2 countries, so the data is dim [10,5,2], and you want to put the 10 persons from each country into 3 clusters, just specify NCLUS => [3,1], and there you have it. The key is for NCLUS to include $data->ndims - 1 numbers. The 1 in [3,1] turns into a dummy dim, so the 3-cluster operation is repeated on both countries. Similarly, when seeding, CNTRD needs to have dims that match the data dims. See stats_kmeans.t for examples w 4D data.
+Now, for the valiant, kmeans is threadable. Say you gathered 10 persons' ratings on 5 movies from 2 countries, so the data is dim [10,5,2], and you want to put the 10 persons from each country into 3 clusters, just specify NCLUS => [3,1], and there you have it. The key is for NCLUS to include $data->ndims - 1 numbers. The 1 in [3,1] turns into a dummy dim, so the 3-cluster operation is repeated on both countries. Similarly, when seeding, CNTRD needs to have ndims that at least match the data ndims. Extra dims in CNTRD will lead to threading (convenient if you want to try out different centroid locations, for example, but you will have to hand pick the best result). See stats_kmeans.t for examples w 3D and 4D data.
 
 *With bad value, R2 is based on average of variances instead of sum squared error. What's minimized is the average variance across clusters as compared to the original variance with all obs in one cluster. R2 in this case does not have the usual meaning of proportion of variance accounted for, but it does serve the purpose of minimizing variance.
 
@@ -632,6 +632,60 @@ sub PDL::iv_cluster {
   return wantarray? ($var_a, $map_ref) : $var_a;
 }
 
+=head2 pca_cluster
+
+Assgin variables to components ie clusters based on pca loadings or scores. One way to seed kmeans (see Ding & He, 2004, and Su & Dy, 2004 for other ways of using pca with kmeans). Variables are assigned to their most associated component. Note that some components may not have any variable that is most associated with them, so the returned number of clusters may be smaller than NCOMP.
+
+Default options (case insensitive):
+
+  V     => 1,
+  ABS   => 1,   # high pos and neg loadings on a comp in same cluster
+  NCOMP => 10,  # max number of components to consider
+
+Usage:
+
+    # say we need to cluster a group of documents
+  ($data, $idd, $idw) = get_data 'doc_word_info.txt';
+
+  perldl> %p = $data->pca;
+  perldl> $cluster  = $p{loading}->pca_cluster;
+
+    # pca clusters var while kmeans clusters obs. hence transpose
+  perldl> ($m, $ss) = $data->transpose->centroid( $cluster );
+  perldl> %k = $data->transpose->kmeans( { cntrd=>$m } );
+
+    # take a look at cluster 0 doc ids
+  perldl> p join("\n", @$idd[ list which $k{cluster}->( ,0) ]);
+
+=cut
+
+*pca_cluster = \&PDL::pca_cluster;
+sub PDL::pca_cluster {
+  my ($self, $opt) = @_;
+
+  my %opt = (
+    V     => 1,
+    ABS   => 1,   # high pos and neg loadings on a comp in same cluster
+    NCOMP => 10,  # max number of components to consider
+  );
+  $opt and $opt{uc $_} = $opt->{$_} for (keys %$opt);
+
+  $opt{NCOMP} = pdl($opt{NCOMP}, $self->dim(1))->min;
+
+  my $c = $self->( ,0:$opt{NCOMP}-1)->transpose->abs->maximum_ind;
+
+  if ($opt{ABS}) {
+    $c = $c->iv_cluster;
+  }
+  else {
+    my @c = map { ($self->($_,$c($_)) >= 0)? $c($_)*2 : $c($_)*2 + 1 }
+                ( 0 .. $c->dim(0)-1 );
+    $c = iv_cluster( \@c );
+  }
+  $opt{V} and print STDERR "cluster membership mask as " . $c->info . "\n";
+  return $c;
+}
+
 sub _array_to_pdl {
   my ($var_ref) = @_;
 
@@ -646,6 +700,10 @@ sub _array_to_pdl {
 }
 
 =head1 	REFERENCES
+
+Ding, C., & He, X. (2004). K-means clustering via principal component analysis. Proceedings of the 21st International Conference on Machine Learning, 69, 29.
+
+Su, T., & Dy, J. (2004). A deterministic method for initializing K-means clustering. 16th IEEE International Conference on Tools with Artificial Intelligence, 784-786.
 
 Romesburg, H.C. (1984). Cluster Analysis for Researchers. NC: Lulu Press.
 

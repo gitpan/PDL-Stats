@@ -15,6 +15,7 @@ WriteMakefile(
         'Test::More' => 0,
         'PDL' => 2.4.4,    # bad value support turned on by default
     },
+    PREREQ_FATAL        => 1,
     DIR                 => ['Basic', 'Distr', 'GLM', 'Kmeans', 'GSL'],
     dist                => { COMPRESS => 'gzip -9f', SUFFIX => 'gz', },
     clean               => { FILES => 'PDL-Stats-*' },

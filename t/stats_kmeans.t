@@ -5,7 +5,7 @@ use warnings;
 use Test::More;
 
 BEGIN {
-    plan tests => 15;
+    plan tests => 16;
       # 1-2
     use_ok( 'PDL::Stats::Basic' );
     use_ok( 'PDL::Stats::Kmeans' );
@@ -202,3 +202,16 @@ sub t_kmeans_3d_bad {
   is(tapprox( sum( $m{R2} - $a{R2} ), 0 ), 1);
   is(tapprox( sum( $m{ms} - $a{ms} ), 0, 1e-3 ), 1);
 }
+
+is(tapprox( t_pca_cluster(), 0 ), 1);
+sub t_pca_cluster {
+  my $l = pdl(
+[qw( -0.798603   -0.61624  -0.906765   0.103116)],
+[qw(  0.283269   -0.41041   0.131113   0.894118)],
+[qw( -0.419717   0.649522 -0.0223668   0.434389)],
+[qw(  0.325314   0.173015  -0.400108  0.0350236)],
+  );
+  my $c = $l->pca_cluster({v=>0});
+  return ( $c - pdl(byte, [1,0,1,0], [0,1,0,0], [0,0,0,1]) )->sum;
+}
+
