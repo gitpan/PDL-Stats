@@ -97,7 +97,7 @@ pp_def('fill_m',
         N  ++;
       }
     %}
-    m  = sa / N;
+    m = N?   sa / N : 0;
     loop (n) %{
       if ( $ISGOOD($a()) ) {
         $b() = $a();
@@ -216,7 +216,7 @@ pp_def('dev_m',
   HandleBad => 1,
   Code      => '
     $GENERIC(b) sa, m;
-    sa = 0;
+    sa = 0; m = 0;
     long N = $SIZE(n);
     loop (n) %{
       sa += $a();
@@ -228,7 +228,7 @@ pp_def('dev_m',
   ',
   BadCode   => '
     $GENERIC(b) sa, m;
-    sa = 0;
+    sa = 0; m = 0;
     long N = 0;
     loop (n) %{
       if ( $ISGOOD($a()) ) {
@@ -236,7 +236,7 @@ pp_def('dev_m',
         N  ++;
       }
     %}
-    m  = sa / N;
+    m = sa / N;
     loop (n) %{
       if ( $ISGOOD($a()) ) {
         $b() = $a() - m;
@@ -272,12 +272,12 @@ pp_def('stddz',
     m  = sa / N;
     sd = pow( a2/N - pow(m,2), .5 );
     loop (n) %{
-      $b() = ($a() - m) / sd;
+      $b() = (sd>0)?  (($a() - m) / sd) : 0;
     %}
   ',
   BadCode   => '
     $GENERIC(b) sa, a2, m, sd;
-    sa = 0; a2 = 0;
+    sa = 0; a2 = 0; m = 0; sd = 0;
     long N = 0;
     loop (n) %{
       if ( $ISGOOD($a()) ) {
@@ -286,21 +286,29 @@ pp_def('stddz',
         N  ++;
       }
     %}
-    m  = sa / N;
-    sd = pow( a2/N - pow(m,2), .5 );
-    loop (n) %{
-      if ( $ISGOOD($a()) ) {
-        $b() = ($a() - m) / sd;
-      }
-      else {
-        $SETBAD( $b() );
-      }
-    %}
+    if (N) {
+      m  = sa / N;
+      sd = pow( a2/N - pow(m,2), .5 );
+      loop (n) %{
+        if ( $ISGOOD(a()) ) {
+/* sd? does not work, presumably due to floating point */
+          $b() = (sd>0)? (($a() - m) / sd) : 0;
+        }
+        else {
+          $SETBAD(b());
+        }
+      %}
+    }
+    else {
+      loop (n) %{
+        $SETBAD(b());
+      %}
+    }
   ',
   Doc       => '
 =for ref
 
-Standardize ie replace values with z_scores based on sample standard deviation from the mean. Can be done inplace.
+Standardize ie replace values with z_scores based on sample standard deviation from the mean (replace with 0s if stdv==0). Can be done inplace.
 
   ',
 
@@ -358,7 +366,8 @@ pp_def('mse',
         N ++;
       }
     %}
-    $c() = ss/N;
+    if (N) { $c() = ss/N;  }
+    else   { $SETBAD(c()); }
   ',
   Doc      => '
 
@@ -395,7 +404,8 @@ pp_def('rmse',
 	N  ++;
       }
     %}
-    $c() = sqrt( d2 / N );
+    if (N)  { $c() = sqrt( d2 / N ); }
+    else    { $SETBAD(c()); }
   ',
   Doc      => '
 
@@ -479,12 +489,17 @@ pp_def('d0',
         N ++;
       }
     %}
-    p /= N;
-    loop (n) %{
-      if ($ISGOOD( $a() ))
-        ll += $a()? log( p ) : log( 1 - p );
-    %}
-    $c() = -2 * ll;
+    if (N) {
+      p /= N;
+      loop (n) %{
+        if ($ISGOOD( $a() ))
+          ll += $a()? log( p ) : log( 1 - p );
+      %}
+      $c() = -2 * ll;
+    }
+    else {
+      $SETBAD(c());
+    }
   ',
   Doc      => '
 =for usage
@@ -964,6 +979,7 @@ sub PDL::anova {
   carp $igood->nelem . " good values in DV"
     if $igood->nelem < $self->nelem and $opt{V};
   $self = $self( $igood )->sever;
+  $self->badflag(0);
 
   @ivs_raw = map { (ref $_ eq 'PDL')? [list $_($igood)] : [ @$_[list $igood] ] }
                  @ivs_raw;
@@ -1236,7 +1252,7 @@ sub PDL::effect_code {
   }
 
   my ($var, $map_ref) = PDL::Stats::Kmeans::_array_to_pdl( $var_ref );
-  my $var_e = zeroes $var->nelem, $var->max;
+  my $var_e = zeroes float, $var->nelem, $var->max;
 
   for my $l (0 .. $var->max - 1) {
     my $v = $var_e( ,$l);

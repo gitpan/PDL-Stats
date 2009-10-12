@@ -66,7 +66,12 @@ pp_def('stdv',
 	N  ++;
       }
     %}
-    $b() = sqrt( a2 / N - pow(sa/N,2) );
+    if (N) {
+      $b() = sqrt( a2 / N - pow(sa/N,2) );
+    }
+    else {
+      $SETBAD(b());
+    }
   ',
   Doc      => '
 
@@ -103,7 +108,12 @@ pp_def('stdv_unbiased',
 	N  ++;
       }
     %}
-    $b() = pow( a2/(N-1) - pow(sa/N,2) * N/(N-1), .5 );
+    if (N-1) {
+      $b() = pow( a2/(N-1) - pow(sa/N,2) * N/(N-1), .5 );
+    }
+    else {
+      $SETBAD(b());
+    }
   ',
   Doc      => '
 
@@ -140,7 +150,12 @@ pp_def('var',
 	N  ++;
       }
     %}
-    $b() = a2 / N - pow(sa/N, 2);
+    if (N) {
+      $b() = a2 / N - pow(sa/N, 2);
+    }
+    else {
+      $SETBAD(b());
+    }
   ',
   Doc      => '
 
@@ -177,7 +192,12 @@ pp_def('var_unbiased',
 	N  ++;
       }
     %}
-    $b() = (a2 - pow(sa/N, 2) * N) / (N-1);
+    if (N-1) {
+      $b() = (a2 - pow(sa/N, 2) * N) / (N-1);
+    }
+    else {
+      $SETBAD(b());
+    }
   ',
   Doc      => '
 
@@ -214,7 +234,12 @@ pp_def('se',
 	N  ++;
       }
     %}
-    $b() = sqrt( (a2/(N-1) - pow(sa/N,2) * N/(N-1)) / N );
+    if (N-1) {
+      $b() = sqrt( (a2/(N-1) - pow(sa/N,2) * N/(N-1)) / N );
+    }
+    else {
+      $SETBAD(b());
+    }
   ',
   Doc      => '
 
@@ -258,7 +283,12 @@ pp_def('ss',
 	N  ++;
       }
     %}
-    $b() = a2 - N * pow(sa/N,2);
+    if (N) {
+      $b() = a2 - N * pow(sa/N,2);
+    }
+    else {
+      $SETBAD(b());
+    }
   ',
   Doc      => '
 
@@ -291,7 +321,7 @@ pp_def('skew',
   ',
   BadCode  => '
     $GENERIC(b) sa, m, d, d2, d3;
-    sa = 0; d2 = 0; d3 = 0;
+    sa = 0; m = 0; d=0; d2 = 0; d3 = 0;
     long N = 0;
     loop (n) %{
       if ( $ISGOOD($a()) ) {
@@ -299,15 +329,20 @@ pp_def('skew',
         N ++;
       }
     %}
-    m = sa / N;
-    loop (n) %{
-      if ( $ISGOOD($a()) ) {
-	d   = $a() - m;
-	d2 += pow(d, 2);
-	d3 += pow(d, 3);
-      }
-    %}
-    $b() = d3/N / pow(d2/N, 1.5);
+    if (N) {
+      m = sa / N;
+      loop (n) %{
+        if ( $ISGOOD($a()) ) {
+      	  d   = $a() - m;
+      	  d2 += pow(d, 2);
+      	  d3 += pow(d, 3);
+        }
+      %}
+      $b() = d3/N / pow(d2/N, 1.5);
+    }
+    else {
+      $SETBAD(b());
+    }
   ',
   Doc      => '
 
@@ -340,7 +375,7 @@ pp_def('skew_unbiased',
   ',
   BadCode  => '
     $GENERIC(b) sa, m, d, d2, d3;
-    sa = 0; d2 = 0; d3 = 0;
+    sa = 0; m = 0; d=0; d2 = 0; d3 = 0;
     long N = 0;
     loop (n) %{
       if ( $ISGOOD($a()) ) {
@@ -348,15 +383,20 @@ pp_def('skew_unbiased',
         N ++;
       }
     %}
-    m = sa / N;
-    loop (n) %{
-      if ( $ISGOOD($a()) ) {
-	d   = $a() - m;
-	d2 += pow(d, 2);
-	d3 += pow(d, 3);
-      }
-    %}
-    $b() = sqrt(N*(N-1)) / (N-2) * d3/N / pow(d2/N, 1.5);
+    if (N-2) {
+      m = sa / N;
+      loop (n) %{
+        if ( $ISGOOD($a()) ) {
+          d   = $a() - m;
+          d2 += pow(d, 2);
+          d3 += pow(d, 3);
+        }
+      %}
+      $b() = sqrt(N*(N-1)) / (N-2) * d3/N / pow(d2/N, 1.5);
+    }
+    else {
+      $SETBAD(b());
+    }
   ',
   Doc      => '
 
@@ -389,7 +429,7 @@ pp_def('kurt',
   ',
   BadCode  => '
     $GENERIC(b) sa, m, d, d2, d4;
-    sa = 0; d2 = 0; d4 = 0;
+    sa = 0; m = 0; d=0; d2 = 0; d4 = 0;
     long N = 0;
     loop (n) %{
       if ( $ISGOOD($a()) ) {
@@ -397,15 +437,20 @@ pp_def('kurt',
         N ++;
       }
     %}
-    m = sa / N;
-    loop (n) %{
-      if ( $ISGOOD($a()) ) {
-	d   = $a() - m;
-	d2 += pow(d, 2);
-	d4 += pow(d, 4);
-      }
-    %}
-    $b() = N * d4 / pow(d2,2) - 3;
+    if (N) {
+      m = sa / N;
+      loop (n) %{
+        if ( $ISGOOD($a()) ) {
+          d   = $a() - m;
+          d2 += pow(d, 2);
+          d4 += pow(d, 4);
+        }
+      %}
+      $b() = N * d4 / pow(d2,2) - 3;
+    }
+    else {
+      $SETBAD(b());
+    }
   ',
   Doc      => '
 
@@ -438,7 +483,7 @@ pp_def('kurt_unbiased',
   ',
   BadCode  => '
     $GENERIC(b) sa, m, d, d2, d4;
-    sa = 0; d2 = 0; d4 = 0;
+    sa = 0; m = 0; d=0; d2 = 0; d4 = 0;
     long N = 0;
     loop (n) %{
       if ( $ISGOOD($a()) ) {
@@ -446,15 +491,20 @@ pp_def('kurt_unbiased',
         N ++;
       }
     %}
-    m = sa / N;
-    loop (n) %{
-      if ( $ISGOOD($a()) ) {
-	d   = $a() - m;
-	d2 += pow(d, 2);
-	d4 += pow(d, 4);
-      }
-    %}
-    $b() = ((N-1)*N*(N+1) * d4 / pow(d2,2) - 3 * pow(N-1,2)) / ((N-2)*(N-3));
+    if (N-3) {
+      m = sa / N;
+      loop (n) %{
+        if ( $ISGOOD($a()) ) {
+          d   = $a() - m;
+          d2 += pow(d, 2);
+          d4 += pow(d, 4);
+        }
+      %}
+      $b() = ((N-1)*N*(N+1) * d4 / pow(d2,2) - 3 * pow(N-1,2)) / ((N-2)*(N-3));
+    }
+    else {
+      $SETBAD(b());
+    }
   ',
   Doc      => '
 
@@ -472,7 +522,7 @@ pp_def('cov',
   GenericTypes => [F, D],
   HandleBad => 1,
   Code      => '
-    $GENERIC(c) ab, sa, sb, cov;
+    $GENERIC(c) ab, sa, sb;
     ab = 0; sa = 0; sb = 0;
     long N = $SIZE(n);
     loop (n) %{
@@ -483,7 +533,7 @@ pp_def('cov',
     $c() = ab / N - (sa/N) * (sb/N);
   ',
   BadCode  => '
-    $GENERIC(c) ab, sa, sb, cov;
+    $GENERIC(c) ab, sa, sb;
     ab = 0; sa = 0; sb = 0;
     long N = 0;
     loop (n) %{
@@ -495,7 +545,12 @@ pp_def('cov',
 	N  ++;
       }
     %}
-    $c() = ab / N - (sa/N) * (sb/N);
+    if (N) {
+      $c() = ab / N - (sa/N) * (sb/N);
+    }
+    else {
+      $SETBAD(c());
+    }
   ',
   Doc      => '
 
@@ -513,9 +568,9 @@ pp_def('corr',
   HandleBad => 1,
   Code      => '
     $GENERIC(c) ab, sa, sb, a2, b2, cov, va, vb;
-    ab = 0; sa = 0; sb = 0; a2 = 0; b2 = 0;
+    ab=0; sa=0; sb=0; a2=0; b2=0; cov=0; va=0; vb=0;
     long N = $SIZE(n);
-    if (N >= 2 ) {
+    if (N > 1 ) {
       loop (n) %{
 	ab += $a() * $b();
 	sa += $a();
@@ -535,7 +590,7 @@ pp_def('corr',
   ',
   BadCode  => '
     $GENERIC(c) ab, sa, sb, a2, b2, cov, va, vb;
-    ab = 0; sa = 0; sb = 0; a2 = 0; b2 = 0;
+    ab=0; sa=0; sb=0; a2=0; b2=0;
     long N = 0;
     loop (n) %{
       if ( $ISBAD($a()) || $ISBAD($b()) ) { }
@@ -548,14 +603,14 @@ pp_def('corr',
 	N  ++;
       }
     %}
-    if ( N >= 2 ) {
+    if ( N > 1 ) {
       cov = ab - (sa * sb) / N;
       va  = a2 - pow(sa,2) / N;
       vb  = b2 - pow(sb,2) / N;
       $c() = cov / sqrt( va * vb );
     }
     else {
-      $SETBAD($c());
+      $SETBAD(c());
     }
   ',
   Doc      => '
@@ -600,7 +655,7 @@ N = $SIZE(n); M = $SIZE(m);
 $GENERIC(a) a_, b_;
 $GENERIC(c) ab, sa, sb, a2, b2, cov, va, vb, r;
 
-if (N >= 2 ) {
+if (N > 1 ) {
   long i, j;
   for (i=0; i<M; i++) {
     for (j=i+1; j<M; j++) {
@@ -638,7 +693,7 @@ if ($SIZE(n) >= 2 ) {
   M = $SIZE(m);
   for (i=0; i<M; i++) {
     for (j=i+1; j<M; j++) {
-      ab = 0; sa = 0; sb = 0; a2 = 0; b2 = 0; N=0;
+      ab=0; sa=0; sb=0; a2=0; b2=0; N=0;
       loop (n) %{
         if ($ISBAD($a(n=>n, m=>i)) || $ISBAD($a(n=>n, m=>j))) { }
         else { 
@@ -652,7 +707,7 @@ if ($SIZE(n) >= 2 ) {
           N ++;
         }
       %}
-      if (N>=2) {
+      if (N > 1) {
         cov = ab - (sa * sb) / N;
         va  = a2 - pow(sa,2) / N;
         vb  = b2 - pow(sb,2) / N;
@@ -669,11 +724,11 @@ if ($SIZE(n) >= 2 ) {
     loop (n) %{
       if ($ISGOOD($a(n=>n,m=>i)))
         N ++;
-      if (N>=2)
+      if (N > 1)
         break;
     %}
-    if (N>=2) {  $c(m0=>i, m1=>i) = 1.0;  }
-    else      {  $SETBAD($c(m0=>i, m1=>i)); }
+    if (N > 1) {  $c(m0=>i, m1=>i) = 1.0;  }
+    else       {  $SETBAD($c(m0=>i, m1=>i)); }
   }
 }
 else {
@@ -731,7 +786,12 @@ pp_def('t_corr',
       $SETBAD( $t() );
     }
     else {
-      $t() = $r() / pow( (1 - pow($r(), 2)) / ($n() - 2) , .5);
+      if ($n() > 2) {
+        $t() = $r() / pow( (1 - pow($r(), 2)) / ($n() - 2) , .5);
+      }
+      else {
+        $SETBAD(t());
+      }
     }
   ',
   Doc       => '
@@ -789,7 +849,7 @@ pp_def('corr_dev',
     $GENERIC(c) ab, a2, b2, cov, va, vb;
     ab = 0; a2 = 0; b2 = 0;
     long N = $SIZE(n);
-    if (N >= 2 ) {
+    if (N > 1) {
       loop (n) %{
 	ab += $a() * $b();
 	a2 += pow($a(), 2);
@@ -817,14 +877,14 @@ pp_def('corr_dev',
         N  ++;
       }
     %}
-    if (N >= 2) {
+    if (N > 1) {
       cov = ab / N;
       va  = a2 / N;
       vb  = b2 / N;
       $c() = cov / sqrt( va * vb );
     }
     else {
-      $SETBAD($c());
+      $SETBAD(c());
     }
   ',
   Doc       => '
@@ -849,7 +909,10 @@ pp_def('t_test',
     sa = 0; sb = 0; a2 = 0; b2 = 0;
     N = $SIZE(n);
     M = $SIZE(m);
-    if (N >=2 && M >= 2 ) {
+    if (N < 2 || M < 2) {
+      barf( "too few N" );
+    }
+    else {
       loop (n) %{
         sa += $a();
 	a2 += pow($a(), 2);
@@ -865,9 +928,6 @@ pp_def('t_test',
       vb = (b2 - pow(sb/M, 2) * M) / (M-1);
       sdiff = sqrt( (1/N + 1/M) * ((N-1)*va + (M-1)*vb) / $d() );
       $t() = (sa/N - sb/M) / sdiff;
-    }
-    else {
-      barf( "too few N" );
     }
   ',
   BadCode   => '
@@ -889,17 +949,17 @@ pp_def('t_test',
         M ++;
       }
     %}
-    if (N >= 2 && M >= 2) {
+    if (N < 2 || M < 2) {
+      $SETBAD($t());
+      $SETBAD($d());
+    }
+    else {
       $d() = N + M - 2;
 
       va = (a2 - pow(sa/N, 2) * N) / (N-1);
       vb = (b2 - pow(sb/M, 2) * M) / (M-1);
       sdiff = sqrt( (1/N + 1/M) * ((N-1)*va + (M-1)*vb) / $d() );
       $t() = (sa/N - sb/M) / sdiff;
-    }
-    else {
-      $SETBAD($t());
-      $SETBAD($d());
     }
   ',
   Doc       => '
@@ -928,7 +988,10 @@ pp_def('t_test_nev',
     sa = 0; sb = 0; a2 = 0; b2 = 0;
     N = $SIZE(n);
     M = $SIZE(m);
-    if (N >=2 && M >= 2 ) {
+    if (N < 2 || M < 2) {
+      barf( "too few N" );
+    }
+    else {
       loop (n) %{
         sa += $a();
 	a2 += pow($a(), 2);
@@ -946,9 +1009,6 @@ pp_def('t_test_nev',
       $d() = pow(se_a_2 + se_b_2, 2)
            / ( pow(se_a_2,2) / (N-1) + pow(se_b_2,2) / (M-1) )
            ;
-    }
-    else {
-      barf( "too few N" );
     }
   ',
   BadCode   => '
@@ -970,7 +1030,11 @@ pp_def('t_test_nev',
         M ++;
       }
     %}
-    if (N >= 2 && M >= 2) {
+    if (N < 2 || M < 2) {
+      $SETBAD($t());
+      $SETBAD($d());
+    }
+    else {
       se_a_2 = (a2 - pow(sa/N,2)*N) / (N*(N-1));
       se_b_2 = (b2 - pow(sb/M,2)*M) / (M*(M-1));
       sdiff = sqrt( se_a_2 + se_b_2 );
@@ -979,10 +1043,6 @@ pp_def('t_test_nev',
       $d() = pow(se_a_2 + se_b_2, 2)
            / ( pow(se_a_2,2) / (N-1) + pow(se_b_2,2) / (M-1) )
            ;
-    }
-    else {
-      $SETBAD($t());
-      $SETBAD($d());
     }
   ',
   Doc       => '
@@ -1006,7 +1066,7 @@ pp_def('t_test_paired',
     $GENERIC(t) N, diff, s_dif, diff2;
     s_dif = 0; diff2 = 0;
     N = $SIZE(n);
-    if (N >=2 ) {
+    if (N > 1) {
       loop (n) %{
         diff = $a() - $b();
         s_dif += diff;
@@ -1033,7 +1093,7 @@ pp_def('t_test_paired',
         N ++;
       }
     %}
-    if (N >= 2 ) {
+    if (N > 1) {
       $d() = N - 1;
       $t() = s_dif / sqrt( N * ( diff2 - pow(s_dif/N,2)*N ) / (N-1) );
     }

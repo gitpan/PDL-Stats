@@ -93,10 +93,16 @@ pp_def('mme_beta',
         N ++;
       }
     %}
-    m = sa / N;
-    v = a2 / N - pow(m, 2);
-    $alpha() = m * ( m * (1 - m) / v - 1 ); 
-    $beta()  = (1 - m) * ( m * (1 - m) / v - 1 );
+    if (N) {
+      m = sa / N;
+      v = a2 / N - pow(m, 2);
+      $alpha() = m * ( m * (1 - m) / v - 1 ); 
+      $beta()  = (1 - m) * ( m * (1 - m) / v - 1 );
+    }
+    else {
+      $SETBAD(alpha());
+      $SETBAD(beta());
+    }
   ',
   Doc      => '
 
@@ -181,11 +187,17 @@ pp_def('mme_binomial',
         N ++;
       }
     %}
-    m = sa / N;
-    v = a2 / N - pow(m, 2);
-    $p()  = 1 - v/m;
-    $n_() = m / $p() >= 0? (int) (m / $p() + .5) : (int) (m / $p() - .5);
-    $p()  = m / $n_(); 
+    if (N) {
+      m = sa / N;
+      v = a2 / N - pow(m, 2);
+      $p()  = 1 - v/m;
+      $n_() = m / $p() >= 0? (int) (m / $p() + .5) : (int) (m / $p() - .5);
+      $p()  = m / $n_();
+    }
+    else {
+      $SETBAD(n_());
+      $SETBAD(p());
+    }
   ',
   Doc      => '
 
@@ -252,7 +264,8 @@ pp_def('mle_exp',
         N ++;
       }
     %}
-    $l() = N / sa;
+    if (sa > 0) {  $l() = N / sa;  }
+    else        {  $SETBAD(l());   }
   ',
   Doc      => '
 
@@ -325,10 +338,16 @@ pp_def('mme_gamma',
         N ++;
       }
     %}
-    m = sa / N;
-    v = a2 / N - pow(m, 2);
-    $shape() = pow(m, 2) / v; 
-    $scale() = v / m;
+    if (N) {
+      m = sa / N;
+      v = a2 / N - pow(m, 2);
+      $shape() = pow(m, 2) / v; 
+      $scale() = v / m;
+    }
+    else {
+      $SETBAD(shape());
+      $SETBAD(scale());
+    }
   ',
   Doc      => '
 
@@ -376,7 +395,7 @@ probability density function for two-parameter gamma distribution.
 );
 
 pp_def('mle_gaussian',
-  Pars      => 'a(n); float+ [o]m(); float+ [o]s2()',
+  Pars      => 'a(n); float+ [o]m(); float+ [o]v()',
   GenericTypes => [F,D],
   HandleBad => 1,
   Code      => '
@@ -388,7 +407,7 @@ pp_def('mle_gaussian',
       a2 += pow($a(), 2);
     %}
     $m()  = sa / N;
-    $s2() = a2 / N - pow($m(),2);
+    $v() = a2 / N - pow($m(),2);
   ',
   BadCode   => '
     $GENERIC(m) sa, a2;
@@ -401,14 +420,20 @@ pp_def('mle_gaussian',
         N ++;
       }
     %}
-    $m()  = sa / N;
-    $s2() = a2 / N - pow($m(),2);
+    if (N) {
+      $m()  = sa / N;
+      $v() = a2 / N - pow($m(),2);
+    }
+    else {
+      $SETBAD(m());
+      $SETBAD(v());
+    }
   ',
   Doc      => '
 
 =for usage
 
-    my ($m, $s2) = $data->mle_gaussian();
+    my ($m, $v) = $data->mle_gaussian();
 
 =for ref
 
@@ -470,7 +495,8 @@ pp_def('mle_geo',
         N ++;
       }
     %}
-    $p()  = 1 / (1 + sa/N);
+    if (N) {  $p()  = 1 / (1 + sa/N);  }
+    else   {  $SETBAD(p());  }
   ',
   Doc      => '
 
@@ -532,7 +558,8 @@ pp_def('mle_geosh',
         N ++;
       }
     %}
-    $p()  = N / sa;
+    if (sa > 0) { $p()  = N / sa; }
+    else        { $SETBAD(p()); }
   ',
   Doc      => '
 
@@ -583,7 +610,7 @@ probability mass function for shifted geometric distribution. x >= 1.
 );
 
 pp_def('mle_lognormal',
-  Pars      => 'a(n); float+ [o]m(); float+ [o]s2()',
+  Pars      => 'a(n); float+ [o]m(); float+ [o]v()',
   GenericTypes => [F,D],
   HandleBad => 1,
   Code      => '
@@ -597,7 +624,7 @@ pp_def('mle_lognormal',
     loop (n) %{
       a2 += pow(log($a()) - $m(), 2);
     %}
-    $s2() = a2 / N;
+    $v() = a2 / N;
   ',
   BadCode   => '
     $GENERIC(m) sa, a2;
@@ -609,19 +636,26 @@ pp_def('mle_lognormal',
         N ++;
       }
     %}
-    $m() = sa / N;
-    loop (n) %{
-      if ($ISGOOD( $a() )) {
-        a2 += pow(log($a()) - $m(), 2);
-      }
-    %}
-    $s2() = a2 / N;
+    if (N) {
+      $m() = sa / N;
+      loop (n) %{
+        if ($ISGOOD( $a() )) {
+          a2 += pow(log($a()) - $m(), 2);
+        }
+      %}
+      $v() = a2 / N;
+    }
+    else {
+      $SETBAD(m());
+      $SETBAD(v());
+    }
+    
   ',
   Doc      => '
 
 =for usage
 
-    my ($m, $s2) = $data->mle_lognormal();
+    my ($m, $v) = $data->mle_lognormal();
 
 =for ref
 
@@ -632,7 +666,7 @@ lognormal distribution. maximum likelihood estimation.
 );
 
 pp_def('mme_lognormal',
-  Pars      => 'a(n); float+ [o]m(); float+ [o]s2()',
+  Pars      => 'a(n); float+ [o]m(); float+ [o]v()',
   GenericTypes => [F,D],
   HandleBad => 1,
   Code      => '
@@ -644,7 +678,7 @@ pp_def('mme_lognormal',
       a2 += pow($a(), 2);
     %}
     $m()  = 2 * log(sa / N) - 1/2 * log( a2 / N );
-    $s2() = log( a2 / N ) - 2 * log( sa / N );
+    $v() = log( a2 / N ) - 2 * log( sa / N );
   ',
   BadCode   => '
     $GENERIC(m) sa, a2;
@@ -657,14 +691,20 @@ pp_def('mme_lognormal',
         N ++;
       }
     %}
-    $m()  = 2 * log(sa / N) - 1/2 * log( a2 / N );
-    $s2() = log( a2 / N ) - 2 * log( sa / N );
+    if (N) {
+      $m()  = 2 * log(sa / N) - 1/2 * log( a2 / N );
+      $v() = log( a2 / N ) - 2 * log( sa / N );
+    }
+    else {
+      $SETBAD(m());
+      $SETBAD(v());
+    }
   ',
   Doc      => '
 
 =for usage
 
-    my ($m, $s2) = $data->mme_lognormal();
+    my ($m, $v) = $data->mme_lognormal();
 
 =for ref
 
@@ -744,10 +784,16 @@ pp_def('mme_nbd',
         N ++;
       }
     %}
-    m = sa / N;
-    v = a2 / N - pow(m, 2);
-    $r() = pow(m, 2) / (v - m);
-    $p() = m / v; 
+    if (N) {
+      m = sa / N;
+      v = a2 / N - pow(m, 2);
+      $r() = pow(m, 2) / (v - m);
+      $p() = m / v; 
+    }
+    else {
+      $SETBAD(r());
+      $SETBAD(p());
+    }
   ',
   Doc      => '
 
@@ -914,7 +960,8 @@ pp_def('mle_poisson',
         N ++;
       }
     %}
-    $l()  = sa / N;
+    if (N) { $l()  = sa / N; }
+    else   { $SETBAD(l()); }
   ',
   Doc      => '
 

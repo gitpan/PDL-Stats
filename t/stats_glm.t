@@ -5,7 +5,7 @@ use warnings;
 use Test::More;
 
 BEGIN {
-    plan tests => 33;
+    plan tests => 35;
       # 1-2
     use_ok( 'PDL::Stats::Basic' );
     use_ok( 'PDL::Stats::GLM' );
@@ -98,6 +98,7 @@ sub t_ols {
   return $sum;
 }
 
+  # 17
 is( tapprox( t_r2_change(), 0 ), 1 );
 sub t_r2_change {
   my $a = sequence 5, 2;
@@ -115,6 +116,7 @@ R2_change => pdl(.15, .15),
   return $sum;
 }
 
+  # 18
 is( tapprox( t_pca(), 0 ), 1 );
 sub t_pca {
   my $a = sequence 10, 5;
@@ -131,6 +133,7 @@ var   => pdl(0.319391,0.234782,0.21011,0.120719,0.114998),
   return $sum / 10;
 }
 
+  # 19
 is( tapprox( t_pca_sorti(), 0 ), 1 );
 sub t_pca_sorti {
   my $a = sequence 10, 5;
@@ -143,6 +146,7 @@ sub t_pca_sorti {
   return sum($iv - pdl(qw(4 1 0 2 3))) + sum($ic - pdl(qw( 0 1 2 )));
 }
 
+  # 20
 SKIP: {
   eval { require PDL::Fit::LM; };
   skip 'no PDL::Fit::LM', 1 if $@;
@@ -185,6 +189,7 @@ sub t_effect_code_w {
   return sum($a->sumover - pdl byte, (0, 0));
 }
 
+  # 31
 is( tapprox( t_anova(), 0 ), 1 );
 sub t_anova {
   my $d = sequence 60;
@@ -200,6 +205,7 @@ sub t_anova {
   ;
 }
 
+  # 32
 is( tapprox( t_anova_1way(), 0 ), 1 );
 sub t_anova_1way {
   my $d = pdl qw( 3 2 1 5 2 1 5 3 1 4 1 2 3 5 5 );
@@ -214,6 +220,7 @@ sub t_anova_1way {
   ;
 }
 
+  # 33
 is( tapprox( t_anova_bad(), 0 ), 1 );
 sub t_anova_bad {
   my $d = sequence 60;
@@ -226,7 +233,23 @@ sub t_anova_bad {
   my %m = $d->anova(\@a, $b, $c, {IVNM=>[qw(A B C)], plot=>0, v=>0});
   my $ans_F = pdl( 150.00306433446, 0.17534855325553 );
   my $ans_m = pdl([qw( 4 22 37 52 )], [qw( 10 22 37 52 )]);
+  my $ans_se = pdl([qw( 0 6 3 6 )], [qw( 1.7320508 3 6 3 )]);
   return  sum( pdl( @m{'| A | F', '| A ~ B ~ C | F'} ) - $ans_F )
         + sum( $m{'# A ~ B ~ C # m'}->(,2,)->squeeze - $ans_m )
+        + sum( $m{'# A ~ B ~ C # se'}->(,2,)->squeeze - $ans_se )
   ;
+}
+
+  # 34
+{
+  my $a = sequence 5, 2;
+  $a( ,1) .= 0;
+  $a = $a->setvaltobad(0);
+  is( $a->fill_m->setvaltobad(0)->nbad, 5, 'fill_m nan to bad');
+}
+  # 35
+{
+  my $a = ones 3, 2;
+  $a( ,1) .= 2;
+  is( which($a->stddz == 0)->nelem, 6, 'stddz nan vs bad');
 }

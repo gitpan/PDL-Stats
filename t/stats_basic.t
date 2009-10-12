@@ -5,7 +5,7 @@ use warnings;
 use Test::More;
 
 BEGIN {
-    plan tests => 46;
+    plan tests => 47;
 }
 
 use PDL::LiteF;
@@ -113,3 +113,12 @@ is( tapprox( $df, 3 ), 1 );
   $a->setbadat(4,0);
   is( tapprox( sum($a->corr_table - $a->corr($a->dummy(1))), 0 ), 1 );
 }
+  # 47
+{
+  my $a = sequence 5, 2;
+  $a( ,1) .= 0;
+  $a = $a->setvaltobad(0);
+  is( $a->stdv->nbad, 1 );
+}
+
+

@@ -203,6 +203,7 @@ sub t_kmeans_3d_bad {
   is(tapprox( sum( $m{ms} - $a{ms} ), 0, 1e-3 ), 1);
 }
 
+  # 16
 is(tapprox( t_pca_cluster(), 0 ), 1);
 sub t_pca_cluster {
   my $l = pdl(

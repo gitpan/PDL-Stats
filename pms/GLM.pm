@@ -236,7 +236,7 @@ It will set the bad-value flag of all output piddles if the flag is set for any 
 
 =for ref
 
-Standardize ie replace values with z_scores based on sample standard deviation from the mean. Can be done inplace.
+Standardize ie replace values with z_scores based on sample standard deviation from the mean (replace with 0s if stdv==0). Can be done inplace.
 
   
 
@@ -888,6 +888,7 @@ sub PDL::anova {
   carp $igood->nelem . " good values in DV"
     if $igood->nelem < $self->nelem and $opt{V};
   $self = $self( $igood )->sever;
+  $self->badflag(0);
 
   @ivs_raw = map { (ref $_ eq 'PDL')? [list $_($igood)] : [ @$_[list $igood] ] }
                  @ivs_raw;
@@ -1160,7 +1161,7 @@ sub PDL::effect_code {
   }
 
   my ($var, $map_ref) = PDL::Stats::Kmeans::_array_to_pdl( $var_ref );
-  my $var_e = zeroes $var->nelem, $var->max;
+  my $var_e = zeroes float, $var->nelem, $var->max;
 
   for my $l (0 .. $var->max - 1) {
     my $v = $var_e( ,$l);

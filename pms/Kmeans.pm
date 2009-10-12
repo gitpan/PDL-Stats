@@ -346,7 +346,7 @@ Usage:
 
 Now, for the valiant, kmeans is threadable. Say you gathered 10 persons' ratings on 5 movies from 2 countries, so the data is dim [10,5,2], and you want to put the 10 persons from each country into 3 clusters, just specify NCLUS => [3,1], and there you have it. The key is for NCLUS to include $data->ndims - 1 numbers. The 1 in [3,1] turns into a dummy dim, so the 3-cluster operation is repeated on both countries. Similarly, when seeding, CNTRD needs to have ndims that at least match the data ndims. Extra dims in CNTRD will lead to threading (convenient if you want to try out different centroid locations, for example, but you will have to hand pick the best result). See stats_kmeans.t for examples w 3D and 4D data.
 
-*With bad value, R2 is based on average of variances instead of sum squared error. What's minimized is the average variance across clusters as compared to the original variance with all obs in one cluster. R2 in this case does not have the usual meaning of proportion of variance accounted for, but it does serve the purpose of minimizing variance.
+*With bad value, R2 is based on average of variances instead of sum squared error. What's minimized is the average variance across clusters as compared to the original variance with all obs in one cluster. R2 in this case does not have the usual meaning of proportion of variance accounted for, but it does serve the purpose of minimizing variance. **With LOTS bad values, ie VERY sparse data, R2 may bounce around instead of monotonously decreasing. May be good idea to fill_m etc before kmeans instead.
 
 =cut
 
@@ -375,10 +375,10 @@ sub PDL::kmeans {
   }
   $opt{V} and print STDERR "$_\t=> $opt{$_}\n" for (sort keys %opt);
  
-    # not avg across var, but sum up the ss across var
-  my $ss_ms    = $self->badflag?  'ms' : 'ss';
-  my $ss_total = $self->badflag?  $self->var->average : $self->ss->sumover;
-  $opt{V} and print STDERR "$ss_ms total:\t$ss_total\n";
+  my $ss_ms = $self->badflag?  'ms' : 'ss';
+  my $ss_total
+    = $self->badflag?  $self->var->average : $self->ss->sumover;
+  $opt{V} and print STDERR "overall $ss_ms:\t$ss_total\n";
 
   my ($cluster, $centroid, $ss_cv, $R2_this, $R2_last, $R2_change);
 

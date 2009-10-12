@@ -1,5 +1,10 @@
 Revision history for PDL-Stats
 
+0.2.6	10/12/2009
+        anova bad value se bug fix
+	centroid bad value empty cluser bug fix
+	basic, glm, distr rid of nan and use bad value instead
+
 0.2.5   09/17/2009
         PREREQ_FATAL => 1 in Makefile.PL
         added pca_cluster in Kmeans.

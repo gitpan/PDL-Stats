@@ -368,13 +368,13 @@ It will set the bad-value flag of all output piddles if the flag is set for any 
 
 =for sig
 
-  Signature: (a(n); float+ [o]m(); float+ [o]s2())
+  Signature: (a(n); float+ [o]m(); float+ [o]v())
 
 
 
 =for usage
 
-    my ($m, $s2) = $data->mle_gaussian();
+    my ($m, $v) = $data->mle_gaussian();
 
 =for ref
 
@@ -564,13 +564,13 @@ It will set the bad-value flag of all output piddles if the flag is set for any 
 
 =for sig
 
-  Signature: (a(n); float+ [o]m(); float+ [o]s2())
+  Signature: (a(n); float+ [o]m(); float+ [o]v())
 
 
 
 =for usage
 
-    my ($m, $s2) = $data->mle_lognormal();
+    my ($m, $v) = $data->mle_lognormal();
 
 =for ref
 
@@ -600,13 +600,13 @@ It will set the bad-value flag of all output piddles if the flag is set for any 
 
 =for sig
 
-  Signature: (a(n); float+ [o]m(); float+ [o]s2())
+  Signature: (a(n); float+ [o]m(); float+ [o]v())
 
 
 
 =for usage
 
-    my ($m, $s2) = $data->mme_lognormal();
+    my ($m, $v) = $data->mme_lognormal();
 
 =for ref
 
