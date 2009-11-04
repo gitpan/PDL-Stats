@@ -5,7 +5,7 @@ use warnings;
 use Test::More;
 
 BEGIN {
-    plan tests => 16;
+    plan tests => 17;
       # 1-2
     use_ok( 'PDL::Stats::Basic' );
     use_ok( 'PDL::Stats::Kmeans' );
@@ -212,7 +212,15 @@ sub t_pca_cluster {
 [qw( -0.419717   0.649522 -0.0223668   0.434389)],
 [qw(  0.325314   0.173015  -0.400108  0.0350236)],
   );
-  my $c = $l->pca_cluster({v=>0});
+  my $c = $l->pca_cluster({v=>0,ncomp=>4});
   return ( $c - pdl(byte, [1,0,1,0], [0,1,0,0], [0,0,0,1]) )->sum;
 }
+  # 17
+{
+  my $a = pdl( [[3,1], [2,4]] );
+  my $b = pdl( [2,4], [3,1] );
+  my $c = pdl( 5,15 );
+  my $d = PDL::Stats::Kmeans::_d_point2line( $a, $b, $c );
 
+  is( tapprox(sum($d - pdl(1.754116, 1.4142136)), 0), 1, '_d_point2line');
+}

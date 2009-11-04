@@ -1,5 +1,11 @@
 Revision history for PDL-Stats
 
+0.2.7	11/04/2009
+	GLM::plot_scree allows directly passing NCOMP. plots cutoff line for screes if requested
+	kmeans stops when cluster assignment no longer changes instead of using R2CRT.
+	if not specified, Kmeans::pca_cluster studies scree plot to determine NCOMP
+	Basic::get_data STDERR message fix: data pdl o x v, NOT v x o
+
 0.2.6	10/12/2009
         anova bad value se bug fix
 	centroid bad value empty cluser bug fix

@@ -850,7 +850,7 @@ sub get_data {
     and ($data, $idv, $ido) = ($data->inplace->transpose, $id_c, $id_r);
 
   if ($opt{V}) {
-    print STDERR "OK.\ndata as PDL dim v x o: " . $data->info . "\n";
+    print STDERR "OK.\ndata as PDL dim o x v: " . $data->info . "\n";
     $idv and print STDERR "$_\t$$idv[$_]\n" for (0..$#$idv);
   }
  
@@ -863,7 +863,7 @@ sub get_data {
 
 =for ref
 
-Lookup specified var (obs) id in $idv ($ido) (see B<get_data>) and return index in $idv ($ido) as pdl if found. Useful for selecting data by var (obs) id.
+Lookup specified var (obs) ids in $idv ($ido) (see B<get_data>) and return indices in $idv ($ido) as pdl if found. The indices are ordered by the specified subset. Useful for selecting data by var (obs) id.
 
 =for usage
 

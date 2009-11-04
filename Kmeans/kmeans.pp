@@ -359,11 +359,72 @@ Takes data dim [obs x var] and mask dim [obs x cluster], returns mean and ss (ms
 
 pp_addpm(<<'EOD');
 
+sub _scree_ind {
+  # it's a heuristic--whether we can get "good" results depends on
+  # the number of components in $self.
+
+  my ($self) = @_;
+
+  $self = $self->squeeze;
+  $self->ndims > 1 and
+    croak "1D pdl only please";
+
+  my $a = zeroes 2, $self->nelem;
+  $a((0), ) .= sequence $self->nelem;
+  $a((1), ) .= $self;
+
+  my $d = _d_point2line( $a, $a( ,(0)), $a( ,(-1)) );
+
+  return $d->maximum_ind;
+}
+
+sub _d_point2line {
+  my ($self, $p1, $p2) = @_;
+
+  for ($self, $p1, $p2) {
+    $_->dim(0) != 2 and
+      carp "point pdl dim(0) != 2";
+  }
+
+  return _d_p2l( $self->mv(0,-1)->dog, $p1->mv(0,-1)->dog, $p2->mv(0,-1)->dog );
+}
+
+EOD
+
+pp_def('_d_p2l',
+  Pars      => 'xc(); yc(); xa(); ya(); xb(); yb(); float+ [o]d()',
+  GenericTypes => [F, D],
+  HandleBad => 1,
+  Code      => '
+    $GENERIC(d) xba, yba;
+    xba = $xb() - $xa();
+    yba = $yb() - $ya();
+
+    $d() = fabs( xba * ($ya() - $yc()) - ($xa() - $xc()) * yba )
+         / sqrt( pow(xba,2) + pow(yba,2) );
+  ',
+  BadCode   => '
+    if ($ISBAD(xc()) || $ISBAD(yc()) || $ISBAD(xa()) || $ISBAD(ya()) || $ISBAD(xb()) || $ISBAD(yb()) )
+         {  $SETBAD(d());  }
+    else {
+      $GENERIC(d) xba, yba;
+      xba = $xb() - $xa();
+      yba = $yb() - $ya();
+  
+      $d() = fabs( xba * ($ya() - $yc()) - ($xa() - $xc()) * yba )
+           / sqrt( pow(xba,2) + pow(yba,2) );
+    }
+  ',
+  Doc      => undef,
+);
+
+pp_addpm(<<'EOD');
+
 =head2 kmeans
 
 =for ref
 
-Implements classic kmeans cluster analysis. Tries several rounds of random-seeding and clustering, returns the best results in terms of R2. Stops when change in R2 is smaller than set criterion.
+Implements classic kmeans cluster analysis. Tries several different random-seeding and clustering in parallel. Stops when cluster assignment no longer changes. Returns the best result in terms of R2.
 
 Alternatively, if a centroid is provided, clustering will proceed from the centroid and there is no random-seeding or multiple tries.
 
@@ -373,77 +434,74 @@ kmeans supports bad value*.
 
 Default options (case insensitive):
 
-    V       => 1,          # prints simple status
-    FULL    => 0,          # returns results for all seeding rounds
+  V       => 1,          # prints simple status
+  FULL    => 0,          # returns results for all seeding rounds
 
-    CNTRD   => PDL->null,  # clu x var. optional. disables next 3 opts
+  CNTRD   => PDL->null,  # clu x var. optional. disables next 3 opts
 
-    NTRY    => 5,          # num of seeding rounds
-    NSEED   => 1000,       # num of initial seeds, use NSEED up to max obs
-    NCLUS   => 8,          # num of clusters
-
-    R2CRT   => .001,       # stop criterion for R2 change
+  NTRY    => 5,          # num of seeding rounds
+  NSEED   => 1000,       # num of initial seeds, use NSEED up to max obs
+  NCLUS   => 8,          # num of clusters
 
 =for usage
 
 Usage:
 
-    # suppose we have 4 person's ratings on 5 movies
+  # suppose we have 4 person's ratings on 5 movies
 
-    perldl> p $rating = ceil( random(4, 5) * 5 ) 
-    [
-     [3 2 2 3]
-     [2 4 5 4]
-     [5 3 2 3]
-     [3 3 1 5]
-     [4 3 3 2]
-    ]
+  perldl> p $rating = ceil( random(4, 5) * 5 ) 
+  [
+   [3 2 2 3]
+   [2 4 5 4]
+   [5 3 2 3]
+   [3 3 1 5]
+   [4 3 3 2]
+  ]
 
-    # we want to put the 4 persons into 2 groups
+  # we want to put the 4 persons into 2 groups
 
-    perldl> %k = $rating->kmeans( {NCLUS=>2} )
+  perldl> %k = $rating->kmeans( {NCLUS=>2} )
 
-    # by default prints back options used
-    # as well as info for all tries and iterations
+  # by default prints back options used
+  # as well as info for all tries and iterations
 
-    CNTRD	=> Null
-    FULL	=> 0
-    NCLUS	=> 2
-    NSEED	=> 4
-    NTRY	=> 5
-    R2CRT	=> 0.001
-    V	        => 1
-    ss total:	20.5
-    iter 0 R2 [0.024390244 0.024390244 0.26829268  0.4796748  0.4796748]
-    iter 1 R2 [0.46341463 0.46341463  0.4796748  0.4796748  0.4796748]
+  CNTRD	=> Null
+  FULL	=> 0
+  NCLUS	=> 2
+  NSEED	=> 4
+  NTRY	=> 5
+  V	        => 1
+  ss total:	20.5
+  iter 0 R2 [0.024390244 0.024390244 0.26829268  0.4796748  0.4796748]
+  iter 1 R2 [0.46341463 0.46341463  0.4796748  0.4796748  0.4796748]
 
-    perldl> p "$_\t$k{$_}\n" for (sort keys %k)
+  perldl> p "$_\t$k{$_}\n" for (sort keys %k)
 
-    R2      0.479674796747968
-    centroid       # mean ratings for 2 group x 5 movies
-    [
-     [         3  2.3333333]
-     [         2  4.3333333]
-     [         5  2.6666667]
-     [         3          3]
-     [         4  2.6666667]
-    ]
+  R2      0.479674796747968
+  centroid       # mean ratings for 2 group x 5 movies
+  [
+   [         3  2.3333333]
+   [         2  4.3333333]
+   [         5  2.6666667]
+   [         3          3]
+   [         4  2.6666667]
+  ]
  
-    cluster        # 4 persons' membership in two groups
-    [
-     [1 0 0 0]
-     [0 1 1 1]
-    ]
-    
-    n       [1 3]  # cluster size
-    ss
-    [
-     [         0 0.66666667]
-     [         0 0.66666667]
-     [         0 0.66666667]
-     [         0          8]
-     [         0 0.66666667]
-    ]
+  cluster        # 4 persons' membership in two groups
+  [
+   [1 0 0 0]
+   [0 1 1 1]
+  ]
+  
+  n       [1 3]  # cluster size
+  ss
+  [
+   [         0 0.66666667]
+   [         0 0.66666667]
+   [         0 0.66666667]
+   [         0          8]
+   [         0 0.66666667]
+  ]
 
 Now, for the valiant, kmeans is threadable. Say you gathered 10 persons' ratings on 5 movies from 2 countries, so the data is dim [10,5,2], and you want to put the 10 persons from each country into 3 clusters, just specify NCLUS => [3,1], and there you have it. The key is for NCLUS to include $data->ndims - 1 numbers. The 1 in [3,1] turns into a dummy dim, so the 3-cluster operation is repeated on both countries. Similarly, when seeding, CNTRD needs to have ndims that at least match the data ndims. Extra dims in CNTRD will lead to threading (convenient if you want to try out different centroid locations, for example, but you will have to hand pick the best result). See stats_kmeans.t for examples w 3D and 4D data.
 
@@ -463,10 +521,8 @@ sub PDL::kmeans {
     NTRY       => 5,
     NSEED      => 1000,
     NCLUS      => 3,
-
-    R2CRT      => .001,
   );
-  $opt    and $opt{uc $_} = $opt->{$_} for (keys %$opt);
+  $opt and $opt{uc $_} = $opt->{$_} for (keys %$opt);
   if ($opt{CNTRD}->nelem) {
     $opt{NTRY}  = 1;
     $opt{NSEED} = $self->dim(0);
@@ -481,58 +537,57 @@ sub PDL::kmeans {
     = $self->badflag?  $self->var->average : $self->ss->sumover;
   $opt{V} and print STDERR "overall $ss_ms:\t$ss_total\n";
 
-  my ($cluster, $centroid, $ss_cv, $R2_this, $R2_last, $R2_change);
+  my ($centroid, $ss_cv, $R2, $clus_this, $clus_last);
 
     # NTRY made into extra dim in $cluster for threading
   my @nclus = (ref $opt{NCLUS} eq 'ARRAY')? @{$opt{NCLUS}} : ($opt{NCLUS});
-  $cluster
+  $clus_this
     = $opt{CNTRD}->nelem ?
       $self->assign( $opt{CNTRD}->dummy(-1) )  # put dummy(-1) to match NTRY
     : random_cluster($opt{NSEED}, @nclus, $opt{NTRY} )
     ;
 
-  ($centroid, $ss_cv) = $self(0:$opt{NSEED} - 1, )->centroid( $cluster );
+  ($centroid, $ss_cv) = $self(0:$opt{NSEED} - 1, )->centroid( $clus_this );
   my $ss_seed = $self->badflag?
                 $self(0:$opt{NSEED}-1, )->var->average
               : $self(0:$opt{NSEED}-1, )->ss->sumover
               ;
-  $R2_this    = $self->badflag? 1 - $ss_cv->average->average / $ss_seed
-              :                 1 - $ss_cv->sumover->sumover / $ss_seed
-              ;
+  $R2 = $self->badflag? 1 - $ss_cv->average->average / $ss_seed
+      :                 1 - $ss_cv->sumover->sumover / $ss_seed
+      ;
 
   my $iter = 0;
   do {
-    $opt{V} and print STDERR join(' ',('iter', $iter++, 'R2', $R2_this)) . "\n";
-    $R2_last = $R2_this;
+    $opt{V} and print STDERR join(' ',('iter', $iter++, 'R2', $R2)) . "\n";
+    $clus_last = $clus_this;
    
-    $cluster = $self->assign( $centroid );
-    ($centroid, $ss_cv) = $self->centroid( $cluster );
+    $clus_this = $self->assign( $centroid );
+    ($centroid, $ss_cv) = $self->centroid( $clus_this );
     
-    $R2_this = $self->badflag? 1 - $ss_cv->average->average / $ss_total
+    $R2 = $self->badflag? 1 - $ss_cv->average->average / $ss_total
              :                 1 - $ss_cv->sumover->sumover / $ss_total
              ;
-    $R2_change = $R2_this - $R2_last;
   }
-  while (PDL::any $R2_change > $opt{R2CRT});
+  while ( any long(abs($clus_this - $clus_last))->sumover->sumover > 0 );
 
   $opt{FULL} and 
     return (
       centroid => PDL::squeeze( $centroid ),
-      cluster  => PDL::squeeze( $cluster ),
-      n        => PDL::squeeze( $cluster )->sumover,
-      R2       => PDL::squeeze( $R2_this ), 
+      cluster  => PDL::squeeze( $clus_this ),
+      n        => PDL::squeeze( $clus_this )->sumover,
+      R2       => PDL::squeeze( $R2 ), 
       $ss_ms   => PDL::squeeze( $ss_cv ),
     );
 
     # xchg/mv(-1,0) leaves it as was if single dim--unlike transpose
-  my $i_best = $R2_this->mv(-1,0)->maximum_ind;
+  my $i_best = $R2->mv(-1,0)->maximum_ind;
 
-  $R2_this->getndims == 1 and
+  $R2->getndims == 1 and
     return (
       centroid => $centroid->dice_axis(-1,$i_best)->sever->squeeze,
-      cluster  => $cluster->dice_axis(-1,$i_best)->sever->squeeze,
-      n        => $cluster->dice_axis(-1,$i_best)->sever->squeeze->sumover,
-      R2       => $R2_this->dice_axis(-1,$i_best)->sever->squeeze, 
+      cluster  => $clus_this->dice_axis(-1,$i_best)->sever->squeeze,
+      n        => $clus_this->dice_axis(-1,$i_best)->sever->squeeze->sumover,
+      R2       => $R2->dice_axis(-1,$i_best)->sever->squeeze, 
       $ss_ms   => $ss_cv->dice_axis(-1,$i_best)->sever->squeeze,
     );
 
@@ -545,23 +600,23 @@ sub PDL::kmeans {
                0 .. $i_best->nelem - 1;
 
   my @shapes;
-  for ($centroid, $cluster, $R2_this) {
+  for ($centroid, $clus_this, $R2) {
     my @dims = $_->dims;
     pop @dims;
     push @shapes, \@dims;
   }
 
-  $cluster = $cluster->mv(-1,2)->clump(2..$cluster->ndims-1)->dice_axis(2,\@i_best)->reshape( @{ $shapes[1] } )->sever,
+  $clus_this = $clus_this->mv(-1,2)->clump(2..$clus_this->ndims-1)->dice_axis(2,\@i_best)->reshape( @{ $shapes[1] } )->sever,
 
   return (
     centroid =>
 $centroid->mv(-1,2)->clump(2..$centroid->ndims-1)->dice_axis(2,\@i_best)->reshape( @{ $shapes[0] } )->sever,
 
-    cluster  => $cluster,
-    n        => $cluster->sumover,
+    cluster  => $clus_this,
+    n        => $clus_this->sumover,
 
     R2       =>
-$R2_this->mv(-1,0)->clump(0..$R2_this->ndims-1)->dice_axis(0,\@i_best)->reshape( @{ $shapes[2] } )->sever,
+$R2->mv(-1,0)->clump(0..$R2->ndims-1)->dice_axis(0,\@i_best)->reshape( @{ $shapes[2] } )->sever,
 
     $ss_ms   => 
 $ss_cv->mv(-1,2)->clump(2..$ss_cv->ndims-1)->dice_axis(2,\@i_best)->reshape( @{ $shapes[0] } )->sever,
@@ -637,8 +692,9 @@ Assgin variables to components ie clusters based on pca loadings or scores. One 
 Default options (case insensitive):
 
   V     => 1,
-  ABS   => 1,   # high pos and neg loadings on a comp in same cluster
-  NCOMP => 10,  # max number of components to consider
+  ABS   => 1,     # high pos and neg loadings on a comp in same cluster
+  NCOMP => undef, # max number of components to consider. determined by
+                  # scree plot black magic if not specified
 
 Usage:
 
@@ -663,12 +719,20 @@ sub PDL::pca_cluster {
 
   my %opt = (
     V     => 1,
-    ABS   => 1,   # high pos and neg loadings on a comp in same cluster
-    NCOMP => 10,  # max number of components to consider
+    ABS   => 1,     # high pos and neg loadings on a comp in same cluster
+    NCOMP => undef, # max number of components to consider. determined by
+                    # scree plot black magic if not specified
   );
   $opt and $opt{uc $_} = $opt->{$_} for (keys %$opt);
 
-  $opt{NCOMP} = pdl($opt{NCOMP}, $self->dim(1))->min;
+  if (!$opt{NCOMP}) {
+      # here's the black magic part
+    my $comps = ($self->dim(1) > 300)? int($self->dim(1) * .1)
+              :                        pdl($self->dim(1), 30)->min
+              ;
+    my $var   = sumover($self( ,0:$comps-1) ** 2) / $self->dim(0);
+    $opt{NCOMP} = _scree_ind( $var );
+  }
 
   my $c = $self->( ,0:$opt{NCOMP}-1)->transpose->abs->maximum_ind;
 

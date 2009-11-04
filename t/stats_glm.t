@@ -253,3 +253,4 @@ sub t_anova_bad {
   $a( ,1) .= 2;
   is( which($a->stddz == 0)->nelem, 6, 'stddz nan vs bad');
 }
+

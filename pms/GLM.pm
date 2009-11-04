@@ -1801,22 +1801,27 @@ Scree plot. Plots proportion of variance accounted for by PCA components.
 
 Default options (case insensitive):
 
-    NCOMP => 10,      # max number of components to plot
-      # see PDL::Graphics::PGPLOT::Window for next options
-    WIN   => undef,   # pgwin object. not closed here if passed
-                      # allows comparing multiple lines in same plot
-                      # set env before passing WIN
-    DEV   => '/xs',   # open and close dev for plotting if no WIN
-    SIZE  => 480,     # plot size in pixels
-    COLOR => 1,
-  
+  NCOMP => 20,      # max number of components to plot
+  CUT   => 0,       # set TRUE to plot suggested cutoff line for screes
+    # see PDL::Graphics::PGPLOT::Window for next options
+  WIN   => undef,   # pgwin object. not closed here if passed
+                    # allows comparing multiple lines in same plot
+                    # set env before passing WIN
+  DEV   => '/xs',   # open and close dev for plotting if no WIN
+  SIZE  => 480,     # plot size in pixels
+  COLOR => 1,
+
 =for usage
 
 Usage:
 
-    # variance should be in descending order
+  # variance should be in descending order
  
-    $pca{var}->plot_scree( {ncomp=>16} );
+  $pca{var}->plot_scree( {ncomp=>16} );
+
+Or, because NCOMP is used so often, it is allowed a shortcut,
+
+  $pca{var}->plot_scree( 16 );
 
 =cut
 
@@ -1826,19 +1831,26 @@ sub PDL::plot_scree {
     carp "No PDL::Graphics::PGPLOT, no plot :(";
     return;
   }
-  my ($self, $opt) = @_;
+  my $opt = pop @_
+    if ref $_[-1] eq 'HASH';
+  my ($self, $ncomp) = @_;
   my %opt = (
-    NCOMP => 10,
+    NCOMP => 20,      # max number of components to plot
+    CUT   => 0,       # set TRUE to plot suggested cutoff line for screes
       # see PDL::Graphics::PGPLOT::Window for next options
-    WIN   => undef,         # pgwin object w env set. won't be closed if passed
-    DEV   => '/xs',         # open and close dev for plotting if no WIN
-    SIZE  => 480,           # plot size in pixels
+    WIN   => undef,   # pgwin object. not closed here if passed
+                      # allows comparing multiple lines in same plot
+                      # set env before passing WIN
+    DEV   => '/xs',   # open and close dev for plotting if no WIN
+    SIZE  => 480,     # plot size in pixels
     COLOR => 1,
   );
   $opt and $opt{uc $_} = $opt->{$_} for (keys %$opt);
+  $ncomp and $opt{NCOMP} = $ncomp;
 
   my $win = $opt{WIN};
-  my $ncomp = ($self->dim(0) < $opt{NCOMP})? $self->dim(0) : $opt{NCOMP};
+  $ncomp = ($self->dim(0) < $opt{NCOMP})? $self->dim(0) : $opt{NCOMP};
+
   if (!$win) {
    $win = pgwin(DEV=>$opt{DEV}, SIZE=>[$opt{SIZE}, $opt{SIZE}], UNIT=>3);
    $win->env(0, $ncomp-1, 0, $self->max,
@@ -1847,6 +1859,11 @@ sub PDL::plot_scree {
   }
   $win->points(sequence($ncomp), $self(0:$ncomp-1, ),
         {CHARSIZE=>2, COLOR=>$opt{COLOR}, PLOTLINE=>1} );
+  if ($opt{CUT}) {
+    my $iscree = PDL::Stats::Kmeans::_scree_ind $self(0:$ncomp-1);
+    $win->line( pdl($iscree-.5, $iscree-.5), pdl(-.05, $self->max+.05),
+                {COLOR=>15} );
+  }
   $win->close
     unless $opt{WIN};
   return;
