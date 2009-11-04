@@ -81,7 +81,7 @@ is(tapprox( t_kmeans(), 0 ), 1);
 sub t_kmeans {
   my $data = sequence 7, 3;
   $data(1, ) .= 0;
-  my %m = $data->kmeans({NCLUS=>2, NTRY=>10, V=>0});
+  my %m = $data->kmeans({NCLUS=>2, NSEED=>6, NTRY=>10, V=>0});
   return sum( $m{centroid}->sumover - pdl qw(3.3333333  10.333333  17.333333) );
 }
 

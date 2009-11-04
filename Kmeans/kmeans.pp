@@ -470,7 +470,7 @@ Usage:
   NCLUS	=> 2
   NSEED	=> 4
   NTRY	=> 5
-  V	        => 1
+  V     => 1
   ss total:	20.5
   iter 0 R2 [0.024390244 0.024390244 0.26829268  0.4796748  0.4796748]
   iter 1 R2 [0.46341463 0.46341463  0.4796748  0.4796748  0.4796748]
@@ -505,7 +505,7 @@ Usage:
 
 Now, for the valiant, kmeans is threadable. Say you gathered 10 persons' ratings on 5 movies from 2 countries, so the data is dim [10,5,2], and you want to put the 10 persons from each country into 3 clusters, just specify NCLUS => [3,1], and there you have it. The key is for NCLUS to include $data->ndims - 1 numbers. The 1 in [3,1] turns into a dummy dim, so the 3-cluster operation is repeated on both countries. Similarly, when seeding, CNTRD needs to have ndims that at least match the data ndims. Extra dims in CNTRD will lead to threading (convenient if you want to try out different centroid locations, for example, but you will have to hand pick the best result). See stats_kmeans.t for examples w 3D and 4D data.
 
-*With bad value, R2 is based on average of variances instead of sum squared error. What's minimized is the average variance across clusters as compared to the original variance with all obs in one cluster. R2 in this case does not have the usual meaning of proportion of variance accounted for, but it does serve the purpose of minimizing variance. **With LOTS bad values, ie VERY sparse data, R2 may bounce around instead of monotonously decreasing. May be good idea to fill_m etc before kmeans instead.
+*With bad value, R2 is based on average of variances instead of sum squared error.
 
 =cut
 
@@ -548,25 +548,21 @@ sub PDL::kmeans {
     ;
 
   ($centroid, $ss_cv) = $self(0:$opt{NSEED} - 1, )->centroid( $clus_this );
-  my $ss_seed = $self->badflag?
-                $self(0:$opt{NSEED}-1, )->var->average
-              : $self(0:$opt{NSEED}-1, )->ss->sumover
-              ;
-  $R2 = $self->badflag? 1 - $ss_cv->average->average / $ss_seed
-      :                 1 - $ss_cv->sumover->sumover / $ss_seed
-      ;
+    # now obs in $clus_this matches $self
+  $clus_this = $self->assign( $centroid );
+  ($centroid, $ss_cv) = $self->centroid( $clus_this );
 
   my $iter = 0;
   do {
+    $R2 = $self->badflag? 1 - $ss_cv->average->average / $ss_total
+        :                 1 - $ss_cv->sumover->sumover / $ss_total
+        ;
     $opt{V} and print STDERR join(' ',('iter', $iter++, 'R2', $R2)) . "\n";
+
     $clus_last = $clus_this;
    
     $clus_this = $self->assign( $centroid );
     ($centroid, $ss_cv) = $self->centroid( $clus_this );
-    
-    $R2 = $self->badflag? 1 - $ss_cv->average->average / $ss_total
-             :                 1 - $ss_cv->sumover->sumover / $ss_total
-             ;
   }
   while ( any long(abs($clus_this - $clus_last))->sumover->sumover > 0 );
 

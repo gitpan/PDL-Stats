@@ -346,7 +346,7 @@ Usage:
   NCLUS	=> 2
   NSEED	=> 4
   NTRY	=> 5
-  V	        => 1
+  V     => 1
   ss total:	20.5
   iter 0 R2 [0.024390244 0.024390244 0.26829268  0.4796748  0.4796748]
   iter 1 R2 [0.46341463 0.46341463  0.4796748  0.4796748  0.4796748]
@@ -424,25 +424,21 @@ sub PDL::kmeans {
     ;
 
   ($centroid, $ss_cv) = $self(0:$opt{NSEED} - 1, )->centroid( $clus_this );
-  my $ss_seed = $self->badflag?
-                $self(0:$opt{NSEED}-1, )->var->average
-              : $self(0:$opt{NSEED}-1, )->ss->sumover
-              ;
-  $R2 = $self->badflag? 1 - $ss_cv->average->average / $ss_seed
-      :                 1 - $ss_cv->sumover->sumover / $ss_seed
-      ;
+    # now obs in $clus_this matches $self
+  $clus_this = $self->assign( $centroid );
+  ($centroid, $ss_cv) = $self->centroid( $clus_this );
 
   my $iter = 0;
   do {
+    $R2 = $self->badflag? 1 - $ss_cv->average->average / $ss_total
+        :                 1 - $ss_cv->sumover->sumover / $ss_total
+        ;
     $opt{V} and print STDERR join(' ',('iter', $iter++, 'R2', $R2)) . "\n";
+
     $clus_last = $clus_this;
    
     $clus_this = $self->assign( $centroid );
     ($centroid, $ss_cv) = $self->centroid( $clus_this );
-    
-    $R2 = $self->badflag? 1 - $ss_cv->average->average / $ss_total
-             :                 1 - $ss_cv->sumover->sumover / $ss_total
-             ;
   }
   while ( any long(abs($clus_this - $clus_last))->sumover->sumover > 0 );
 
