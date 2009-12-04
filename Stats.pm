@@ -8,11 +8,11 @@ PDL::Stats - a collection of statistics modules in Perl Data Language, with a qu
 
 =head1 VERSION
 
-Version 0.2.8
+Version 0.3.0
 
 =cut
 
-$VERSION = '0.2.8';
+$VERSION = '0.3.0';
 
 
 =head1 DESCRIPTION
@@ -43,7 +43,7 @@ Enjoy PDL::Stats without having to dive into PDL, just wet your feet a little. T
 
 =head2 pdl
 
-The magic word that puts PDL::Stats at your disposal. pdl creates a PDL numeric data object (a pdl, pronounced "piddle" :/ ) from perl array or array ref. All PDL::Stat methods, unless meant for regular perl array, can then be called from the data object.
+The magic word that puts PDL::Stats at your disposal. pdl creates a PDL numeric data object (a pdl, pronounced "piddle" :/ ) from perl array or array ref. All PDL::Stats methods, unless meant for regular perl array, can then be called from the data object.
 
     my @y = 0..5;
 
@@ -62,9 +62,10 @@ The magic word that puts PDL::Stats at your disposal. pdl creates a PDL numeric 
     my @x1 = qw( y y y n n n );
     my @x2 = qw( 1 0 1 0 1 0 )
 
-    # 1st @ref includes IVs, 2nd @ref is optional IV names
+    # do a two-way analysis of variance with y as DV and x1 x2 as IVs
 
-    my %result = pdl(@y)->anova( [\@x1, \@x2], ['orange', 'apple'] );
+    my %result = pdl(@y)->anova( \@x1, \@x2 );
+    print "$_\t$result{$_}\n" for (sort keys %result);
 
 If you have a list of list, ie array of array refs, pdl will create a multi-dimensional data object.
 
@@ -86,18 +87,19 @@ If you have a list of list, ie array of array refs, pdl will create a multi-dime
     # you can do all kinds of fancy stuff on such a 2D pdl.
 
     my %result = $a->kmeans( {NCLUS=>2} );
+    print "$_\t$result{$_}\n" for (sort keys %result);
 
 Make sure the array of array refs is rectangular. If the array refs are of unequal sizes, pdl will pad it out with 0s to match the longest list.
 
 =head2 info
 
-Tells you the data type (yes pdls are typed, but you shouldn't have to worry about it here*) and dimentionality of the pdl, as seen in the above example. It helps your sanity to keep track of the dimentionality of a pdl. PDL::Stats uses 2D pdl with observation x variable dimentionality. So in the above example we are talking about 4 separate observations with values on 3 different variables.
+Tells you the data type (yes pdls are typed, but you shouldn't have to worry about it here*) and dimensionality of the pdl, as seen in the above example. It helps your sanity to keep track of the dimensionality of a pdl. PDL::Stats uses 2D pdl with observation x variable dimensionality. So in the above example we are talking about 4 separate observations with values on 3 different variables.
 
 *pdl uses double precision by default. If you are working with things like epoch time, then you should probably use pdl(long, @epoch) to maintain the precision.
 
 =head2 list
 
-Come back to the perl reality from the PDL wonder land. list turns a pdl data object into a regular perl list. Caveat: list produces a flat list. The dimentionality of the data object is lost.
+Come back to the perl reality from the PDL wonder land. list turns a pdl data object into a regular perl list. Caveat: list produces a flat list. The dimensionality of the data object is lost.
 
 =head2 Signature
 

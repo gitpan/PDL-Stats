@@ -5,7 +5,7 @@ use warnings;
 use Test::More;
 
 BEGIN {
-    plan tests => 35;
+    plan tests => 38;
       # 1-2
     use_ok( 'PDL::Stats::Basic' );
     use_ok( 'PDL::Stats::GLM' );
@@ -155,10 +155,12 @@ SKIP: {
 }
 sub t_logistic {
   my $y = pdl( 0, 0, 0, 1, 1 );
-  my $x = sequence(5) + 1;
+  my $x = pdl(2, 3, 5, 5, 5);
   my %m = $y->logistic( $x );
   my $y_pred = $x->glue(1, ones(5))->pred_logistic( $m{b} );
-  return sum( $y - $y_pred, $m{Dm_chisq} - 6.73011667009256 );
+  my $y_pred_ans
+    = pdl qw(7.2364053e-07 0.00010154254 0.66666667 0.66666667 0.66666667);
+  return sum( $y_pred - $y_pred_ans, $m{Dm_chisq} - 2.91082711764867 );
 }
 
 my $a_bad = sequence 6;
@@ -190,7 +192,7 @@ sub t_effect_code_w {
 }
 
   # 31
-is( tapprox( t_anova(), 0 ), 1 );
+is( tapprox( t_anova(), 0 ), 1, 'anova_3w' );
 sub t_anova {
   my $d = sequence 60;
   my @a = map {$a = $_; map { $a } 0..14 } qw(a b c d);
@@ -206,7 +208,7 @@ sub t_anova {
 }
 
   # 32
-is( tapprox( t_anova_1way(), 0 ), 1 );
+is( tapprox( t_anova_1way(), 0 ), 1, 'anova_1w' );
 sub t_anova_1way {
   my $d = pdl qw( 3 2 1 5 2 1 5 3 1 4 1 2 3 5 5 );
   my $a = qsort sequence(15) % 3;
@@ -221,7 +223,7 @@ sub t_anova_1way {
 }
 
   # 33
-is( tapprox( t_anova_bad(), 0 ), 1 );
+is( tapprox( t_anova_bad(), 0 ), 1, 'anova_bad' );
 sub t_anova_bad {
   my $d = sequence 60;
   $d(20) .= 10;
@@ -254,3 +256,70 @@ sub t_anova_bad {
   is( which($a->stddz == 0)->nelem, 6, 'stddz nan vs bad');
 }
 
+  # 36
+is( tapprox( t_anova_rptd_1way(), 0 ), 1, 'anova_rptd_1w' );
+sub t_anova_rptd_1way {
+  my $d = pdl qw( 3 2 1 5 2 1 5 3 1 4 1 2 3 5 5 );
+  my $s = sequence(5)->dummy(1,3)->flat;
+  my $a = qsort sequence(15) % 3;
+  my %m = $d->anova_rptd($s, $a, {plot=>0});
+#print "$_\t$m{$_}\n" for (sort keys %m);
+  my $ans_F  = 0.145077720207254;
+  my $ans_ms = 0.466666666666667;
+  my $ans_m = pdl(qw( 2.6 2.8 3.2 ));
+  return  ($m{'| IV_0 | F'} - $ans_F)
+        + ($m{'| IV_0 | ms'} - $ans_ms )
+        + sum( $m{'# IV_0 # m'}->squeeze - $ans_m )
+  ;
+}
+
+  # 37
+is( tapprox( t_anova_rptd_2way_bad(), 0 ), 1, 'anova_rptd_2w_bad' );
+sub t_anova_rptd_2way_bad {
+  my $d = pdl qw( 3 2 1 5 2 1 5 3 1 4 1 2 3 5 5 3 4 2 1 5 4 3 2 2);
+  $d = $d->setbadat(5);
+  my $s = sequence(4)->dummy(1,6)->flat;
+# [0 1 2 3 0 1 2 3 0 1 2 3 0 1 2 3 0 1 2 3 0 1 2 3]
+  my $a = qsort sequence(24) % 3;
+# [0 0 0 0 0 0 0 0 1 1 1 1 1 1 1 1 2 2 2 2 2 2 2 2]
+  my $b = (sequence(8) > 3)->dummy(1,3)->flat;
+# [0 0 0 0 1 1 1 1 0 0 0 0 1 1 1 1 0 0 0 0 1 1 1 1]
+  my %m = $d->anova_rptd($s, $a, $b, {ivnm=>['a','b'],plot=>0, v=>0});
+#print "$_\t$m{$_}\n" for (sort keys %m);
+  my $ans_a_F  = 0.351351351351351;
+  my $ans_a_ms = 0.722222222222222;
+  my $ans_ab_F = 5.25;
+  my $ans_ab_m = pdl(qw( 3  1.3333333  3.3333333 3.3333333  3.6666667  2.6666667  ))->reshape(3,2);
+  return  ($m{'| a | F'} - $ans_a_F)
+        + ($m{'| a | ms'} - $ans_a_ms)
+        + ($m{'| a ~ b | F'} - $ans_ab_F)
+        + sum( $m{'# a ~ b # m'} - $ans_ab_m )
+  ;
+}
+
+  # 38
+is( tapprox( t_anova_rptd_3way(), 0 ), 1, 'anova_rptd_3w' );
+sub t_anova_rptd_3way {
+  my $d = pdl( qw( 3 2 1 5 2 1 5 3 1 4 1 2 3 5 5 3 4 2 1 5 4 3 2 2 ),
+               qw( 5 5 1 1 4 4 1 4 4 2 3 3 5 1 1 2 4 4 4 5 5 1 1 2 )
+  );
+  my $s = sequence(4)->dummy(0,12)->flat;
+  my $a = sequence(2)->dummy(0,6)->flat->dummy(1,4)->flat;
+  my $b = sequence(2)->dummy(0,3)->flat->dummy(1,8)->flat;
+  my $c = sequence(3)->dummy(1,16)->flat;
+  my %m = $d->anova_rptd($s, $a, $b, $c, {ivnm=>['a','b', 'c'],plot=>0});
+#print "$_\t$m{$_}\n" for (sort keys %m);
+  my $ans_a_F  = 0.572519083969459;
+  my $ans_a_ms = 0.520833333333327;
+  my $ans_ac_F = 3.64615384615385;
+  my $ans_bc_ems = 2.63194444444445;
+  my $ans_abc_F = 1.71299093655589;
+  my $ans_abc_m = pdl(qw( 4 2.75 2.75 2.5 3.25 4.25 3.5 1.75 2 3.5 2.75 2.25 ))->reshape(2,2,3);
+  return  ($m{'| a | F'} - $ans_a_F)
+        + ($m{'| a | ms'} - $ans_a_ms)
+        + ($m{'| a ~ c | F'} - $ans_ac_F)
+        + ($m{'| b ~ c || err ms'} - $ans_bc_ems)
+        + ($m{'| a ~ b ~ c | F'} - $ans_abc_F)
+        + sum( $m{'# a ~ b ~ c # m'} - $ans_abc_m )
+  ;
+}

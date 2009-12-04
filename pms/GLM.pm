@@ -4,7 +4,7 @@
 #
 package PDL::Stats::GLM;
 
-@EXPORT_OK  = qw(  ols_t anova dummy_code effect_code effect_code_w ols r2_change logistic pca pca_sorti plot_means plot_scree PDL::PP fill_m PDL::PP fill_rand PDL::PP dev_m PDL::PP stddz PDL::PP sse PDL::PP mse PDL::PP rmse PDL::PP pred_logistic PDL::PP d0 PDL::PP dm PDL::PP dvrs );
+@EXPORT_OK  = qw(  ols_t anova anova_rptd dummy_code effect_code effect_code_w ols r2_change logistic pca pca_sorti plot_means plot_scree PDL::PP fill_m PDL::PP fill_rand PDL::PP dev_m PDL::PP stddz PDL::PP sse PDL::PP mse PDL::PP rmse PDL::PP pred_logistic PDL::PP d0 PDL::PP dm PDL::PP dvrs );
 %EXPORT_TAGS = (Func=>[@EXPORT_OK]);
 
 use PDL::Core;
@@ -784,7 +784,7 @@ anova supports bad value in the dependent variable.
 Default options (case insensitive):
 
     IVNM   => undef,   # auto filled as ['IV_0', 'IV_1', ... ]
-    PLOT   => 1,       # plots highest order interaction
+    PLOT   => 1,       # plots highest order effect
     V      => 1,       # carps if bad value in dv
 
 =for usage
@@ -874,12 +874,19 @@ sub PDL::anova {
   croak "Mismatched number of elements in DV and IV. Are you passing IVs the old-and-abandoned way?"
     if (ref $ivs_raw[0] eq 'ARRAY') and (@{ $ivs_raw[0] } != $self->nelem);
 
+  for (@ivs_raw) {
+    croak "too many dims in IV!"
+      if ref $_ eq 'PDL' and $_->squeeze->ndims > 1;
+  }
+
   my %opt = (
     IVNM   => undef,   # auto filled as ['IV_0', 'IV_1', ... ]
-    PLOT   => 1,       # plots highest order interaction
+    PLOT   => 1,       # plots highest order effect
     V      => 1,       # carps if bad value in dv
   );
   $opt and $opt{uc $_} = $opt->{$_} for (keys %$opt);
+  $opt{IVNM} ||= [ map { "IV_$_" } (0 .. $#ivs_raw) ];
+  my @idv = @{ $opt{IVNM} };
 
   my %ret;
 
@@ -889,21 +896,18 @@ sub PDL::anova {
     if $igood->nelem < $self->nelem and $opt{V};
   $self = $self( $igood )->sever;
   $self->badflag(0);
+    # create new vars here so we don't mess up original caller @
+  my @pdl_ivs_raw
+    = map { my $var
+              = (ref $_ eq 'PDL')? [list $_($igood)] : [@$_[list $igood]];
+            scalar PDL::Stats::Kmeans::_array_to_pdl $var;
+          } @ivs_raw;
 
-  @ivs_raw = map { (ref $_ eq 'PDL')? [list $_($igood)] : [ @$_[list $igood] ] }
-                 @ivs_raw;
+  my ($ivs_ref, $i_cmo_ref)
+    = _effect_code_ivs( \@pdl_ivs_raw );
 
-  my @pdl_ivs_raw = map {scalar PDL::Stats::Kmeans::_array_to_pdl $_ } @ivs_raw;
-
-  my ($ivs_ref, $i_cmo_ref) = _effect_code_ivs( \@pdl_ivs_raw );
-
-  $opt{IVNM} ||= [ map { "IV_$_" } (0..$#$ivs_ref) ];
-  my @idv = @{ $opt{IVNM} };
-
-  ($ivs_ref, my $idv, my $ivs_cm_ref, $i_cmo_ref)
-    = _add_interactions( $ivs_ref, \@idv, \@pdl_ivs_raw, $i_cmo_ref );
-
-#print "$idv->[$_]\t$ivs_ref->[$_]\n" for (0..$#$ivs_ref);
+  ($ivs_ref, $i_cmo_ref, my( $idv, $ivs_cm_ref ))
+    = _add_interactions( $ivs_ref, $i_cmo_ref, \@idv, \@pdl_ivs_raw );
 
     # add const here
   my $ivs = PDL->null->glue( 1, @$ivs_ref );
@@ -914,7 +918,7 @@ sub PDL::anova {
   $ret{ss_total} = $self->ss;
   $ret{ss_residual} = $self->sse( sumover( $b_full * $ivs->xchg(0,1) ) );
   $ret{ss_model} = $ret{ss_total} - $ret{ss_residual};
-  $ret{F_df} = pdl ($ivs->dim(1) - 1, $self->nelem - ($ivs->dim(1) - 1) - 1);
+  $ret{F_df} = pdl($ivs->dim(1) - 1, $self->nelem - ($ivs->dim(1) - 1) -1);
   $ret{ms_model} = $ret{ss_model} / $ret{F_df}->(0);
   $ret{ms_residual} = $ret{ss_residual} / $ret{F_df}->(1);
   $ret{F} = $ret{ms_model} / $ret{ms_residual};
@@ -957,7 +961,7 @@ sub PDL::anova {
 
   my $highest = join(' ~ ', @{ $opt{IVNM} });
   $cm_ref->{"# $highest # m"}->plot_means(
-                           {SE=>$cm_ref->{"# $highest # se"}, IVNM=>$idv, } )
+                       {SE=>$cm_ref->{"# $highest # se"}, IVNM=>$idv, } )
     if $opt{PLOT};
 
   return %ret;
@@ -972,35 +976,19 @@ sub _old_interface_check {
 sub _effect_code_ivs {
   my $ivs = shift;
 
-  ref $ivs eq 'PDL'
-    and $ivs = [ $ivs ];
-
-    # assume it is a mix of pdl and @ ref, flatten it
-  my @ivs_1d = map
-  {
-    my @f;
-    if (ref $_ eq 'PDL') {
-      $_->getndims > 2 and
-        croak "too many dims in ivs!";
-      @f = ($_->getndims == 1)? ($_) : ($_->dog);
-    }
-    else {
-      @f = ($_);
-    }
-  } @$ivs; 
-
-  my @i_cmo;
-  for (@ivs_1d) {
-    my ($e, $map) = effect_code($_);
-    $_ = ($e->getndims == 1)? $e->dummy(1) : $e;
+  my (@i_iv, @i_cmo);
+  for (@$ivs) {
+    my ($e, $map) = effect_code($_->squeeze);
+    my $var = ($e->getndims == 1)? $e->dummy(1) : $e;
+    push @i_iv, $var;
     my @indices = sort { $a<=>$b } values %$map;
     push @i_cmo, pdl @indices;
   }
-  return \@ivs_1d, \@i_cmo;
+  return \@i_iv, \@i_cmo;
 }
 
 sub _add_interactions {
-  my ($var_ref, $idv, $raw_ref, $i_cmo_ref) = @_;
+  my ($var_ref, $i_cmo_ref, $idv, $raw_ref) = @_;
 
     # append info re inter to main effects
   my (@inter, @idv_inter, @inter_cm, @inter_cmo);
@@ -1012,7 +1000,6 @@ sub _add_interactions {
       for (@v) {
         $i = $i * $var_ref->[$_]->dummy(1);
         $i = $i->clump(1,2);
-        
       }
       push @inter, $i;
 
@@ -1038,8 +1025,8 @@ sub _add_interactions {
     }
   }
     # append info re inter to main effects
-  return ([@$var_ref, @inter],    [@$idv, @idv_inter],
-          [@$var_ref, @inter_cm], [@$i_cmo_ref, @inter_cmo] );
+  return ([@$var_ref, @inter], [@$i_cmo_ref, @inter_cmo],
+          [@$idv, @idv_inter], [@$var_ref, @inter_cm]     );
 }
 
 sub _cell_means {
@@ -1095,6 +1082,286 @@ sub _combinations {
     
     return @$arr[@pick];
   };
+}
+
+=head2 anova_rptd
+
+Repeated measures anova. Uses type III sum of squares. Automatically removes bad data listwise, ie remove a subject's data if there is any cell missing for the subject.
+
+Between-subject factor support upcoming. Stay tuned.
+
+Default options (case insensitive):
+
+    V      => 1,       # carps if bad value in dv
+    IVNM   => undef,   # auto filled as ['IV_0', 'IV_1', ... ]
+    PLOT   => 1,       # plots highest order effect
+
+Usage:
+
+    Some fictional data: recall_w_beer_and_wings.txt
+  
+    Subject Beer    Wings   Recall
+    Alex    1       1       8
+    Alex    1       2       9
+    Alex    1       3       5
+    Alex    2       1       7
+    Alex    2       2       9
+    Alex    2       3       12
+    Brian   1       1       12
+    Brian   1       2       13
+    Brian   1       3       14
+    Brian   2       1       16
+    Brian   2       2       13
+    Brian   2       3       14
+    ...
+  
+      # get_data allows text only in 1st row and col
+    my ($data, $idv, $subj) = get_data 'recall_w_beer_and_wings.txt';
+  
+    my ($b, $w, $dv) = $data->dog;
+      # subj and ivs can be 1d pdl or @ ref
+    my %m = $dv->anova_rptd( $subj, $b, $w, {ivnm=>['beer', 'wings']} );
+  
+    print "$_\t$m{$_}\n" for (sort keys %m);
+  
+    # beer # m
+    [
+     [ 10.333333      12.75]
+    ]
+  
+    # beer # se
+    [
+     [  0.987293  1.4622782]
+    ]
+  
+    # beer ~ wings # m
+    [
+     [  9.5    11]
+     [10.75 12.25]
+     [10.75    15]
+    ]
+  
+    # beer ~ wings # se
+    [
+     [       1.5  3.2403703]
+     [  1.652019  2.1360009]
+     [ 2.3228933  2.3804761]
+    ]
+  
+    # wings # m
+    [
+     [ 10.25   11.5 12.875]
+    ]
+  
+    # wings # se
+    [
+     [  1.677051  1.2817399  1.7365555]
+    ]
+  
+    ss_residual	23.5833333333333
+    ss_subject	309.125
+    ss_total	445.958333333333
+    | beer | F	5.90866510538642
+    | beer | F_p	0.0932654283732719
+    | beer | df	1
+    | beer | ms	35.0416666666667
+    | beer | ss	35.0416666666667
+    | beer || err df	3
+    | beer || err ms	5.93055555555555
+    | beer || err ss	17.7916666666667
+    | beer ~ wings | F	1.28268551236749
+    | beer ~ wings | F_p	0.343728237549026
+    | beer ~ wings | df	2
+    | beer ~ wings | ms	5.04166666666667
+    | beer ~ wings | ss	10.0833333333333
+    | beer ~ wings || err df	6
+    | beer ~ wings || err ms	3.93055555555556
+    | beer ~ wings || err ss	23.5833333333333
+    | wings | F	3.63736263736264
+    | wings | F_p	0.0923372901981468
+    | wings | df	2
+    | wings | ms	13.7916666666667
+    | wings | ss	27.5833333333333
+    | wings || err df	6
+    | wings || err ms	3.79166666666666
+    | wings || err ss	22.75
+
+=cut
+
+*anova_rptd = \&PDL::anova_rptd;
+sub PDL::anova_rptd {
+  my $opt = pop @_
+    if ref $_[-1] eq 'HASH';
+  my ($self, $subj, @ivs_raw) = @_;
+
+  for (@ivs_raw) {
+    croak "too many dims in IV!"
+      if ref $_ eq 'PDL' and $_->squeeze->ndims > 1
+  }
+
+  my %opt = (
+    V      => 1,       # carps if bad value in dv
+    IVNM   => undef,   # auto filled as ['IV_0', 'IV_1', ... ]
+    BTWN   => [],      # not implemented yet
+    PLOT   => 1,       # plots highest order effect
+  );
+  $opt and $opt{uc $_} = $opt->{$_} for (keys %$opt);
+  $opt{IVNM} ||= [ map { "IV_$_" } 0 .. $#ivs_raw ];
+  my @idv = @{ $opt{IVNM} };
+
+  my %ret;
+
+    # create new vars here so we don't mess up original caller @
+  my ($sj, @pdl_ivs_raw)
+    = map { my $var = (ref $_ eq 'PDL')? [list $_] : $_;
+            scalar PDL::Stats::Kmeans::_array_to_pdl $var;
+          } ( $subj, @ivs_raw );
+
+    # delete bad data listwise ie remove subj if any cell missing
+  $self = $self->squeeze;
+  my $ibad = which $self->isbad;
+  my $sj_bad = $sj($ibad)->uniq;
+  if ($sj_bad->nelem) {
+    carp $sj_bad->nelem . " subjects with missing data removed"
+      if $opt{V};
+    $sj = $sj->setvaltobad($_)
+      for (list $sj_bad);
+    my $igood = which $sj->isgood;
+    for ($self, $sj, @pdl_ivs_raw) {
+      $_ = $_( $igood )->sever;
+      $_->badflag(0);
+    }
+  }
+    # code for ivs and cell mean in diff @s: effect_code vs iv_cluster
+  my ($ivs_ref, $i_cmo_ref)
+    = _effect_code_ivs( \@pdl_ivs_raw );
+
+  ($ivs_ref, $i_cmo_ref, my( $idv, $ivs_cm_ref))
+    = _add_interactions( $ivs_ref, $i_cmo_ref, \@idv, \@pdl_ivs_raw );
+
+    # matches $ivs_ref, with an extra last pdl for subj effect
+  my $err_ref
+    = _add_errors( $sj, $ivs_ref, $idv, \@ivs_raw, \%opt );
+
+    # stitch together
+  my $ivs = PDL->null->glue( 1, @$ivs_ref );
+  $ivs = $ivs->glue(1, grep { defined $_ } @$err_ref);
+  $ivs = $ivs->glue(1, ones $ivs->dim(0));
+
+  my $b_full = $self->ols_t( $ivs, {CONST=>0} );
+
+  $ret{ss_total} = $self->ss;
+  $ret{ss_residual} = $self->sse( sumover( $b_full * $ivs->xchg(0,1) ) );
+
+  my @full = (@$ivs_ref, @$err_ref);
+  EFFECT: for my $k (0 .. $#full) {
+    my $e = ($k > $#$ivs_ref)?  '| err' : '';
+    my $i = ($k > $#$ivs_ref)?  $k - @$ivs_ref : $k;
+
+    if (!defined $full[$k]) {
+      $ret{ "| $idv->[$i] |$e ss" } = $ret{ss_residual};
+        # highest ord inter for purely within design, (p-1)*(q-1)*(n-1)
+      $ret{ "| $idv->[$i] |$e df" }
+        = pdl(map { $_->dim(1) } @full[0 .. $#ivs_raw, -1])->prodover;
+      $ret{ "| $idv->[$i] |$e ms" }
+        = $ret{ "| $idv->[$i] |$e ss" } / $ret{ "| $idv->[$i] |$e df" };
+      next EFFECT;
+    }
+
+    my (@G, $G, $b_G);
+    @G = grep { $_ != $k and defined $full[$_] } (0 .. $#full);
+ 
+    next EFFECT
+      unless @G;
+
+    $G = PDL->null->glue( 1, @full[@G] );
+    $G = $G->glue(1, ones $G->dim(0));
+    $b_G = $self->ols_t( $G, {CONST=>0} );
+
+    if ($k == $#full) {
+      $ret{ss_subject}
+        = $self->sse(sumover($b_G * $G->transpose)) - $ret{ss_residual};
+    }
+    else {
+      $ret{ "| $idv->[$i] |$e ss" }
+        = $self->sse(sumover($b_G * $G->transpose)) - $ret{ss_residual};
+      $ret{ "| $idv->[$i] |$e df" }
+        = $full[$k]->dim(1);
+      $ret{ "| $idv->[$i] |$e ms" }
+        = $ret{ "| $idv->[$i] |$e ss" } / $ret{ "| $idv->[$i] |$e df" };
+    }
+  }
+    # have all iv, inter, and error effects. get F and F_p
+  for (0 .. $#$ivs_ref) {
+    $ret{ "| $idv->[$_] | F" }
+      = $ret{ "| $idv->[$_] | ms" } / $ret{ "| $idv->[$_] || err ms" };
+    $ret{ "| $idv->[$_] | F_p" }
+      = 1 - $ret{ "| $idv->[$_] | F" }->gsl_cdf_fdist_P(
+        $ret{ "| $idv->[$_] | df" }, $ret{ "| $idv->[$_] || err df" } )
+      if $CDF;
+  }
+
+  for (keys %ret) {ref $ret{$_} eq 'PDL' and $ret{$_} = $ret{$_}->squeeze};
+
+  my $cm_ref
+    = _cell_means( $self, $ivs_cm_ref, $i_cmo_ref, $idv, \@pdl_ivs_raw );
+    # sort bc we can't count on perl % internal key order implementation
+  @ret{ sort keys %$cm_ref } = @$cm_ref{ sort keys %$cm_ref };
+
+  my $highest = join(' ~ ', @{ $opt{IVNM} });
+  $cm_ref->{"# $highest # m"}->plot_means(
+                        {SE=>$cm_ref->{"# $highest # se"}, IVNM=>$idv, } )
+    if $opt{PLOT};
+
+  return %ret;
+}
+
+sub _add_errors {
+  my ($subj, $ivs_ref, $idv, $raw_ivs, $opt) = @_;
+
+  # code (btwn group) subjects. Rutherford (2001) pp 101-102 
+
+  my (@grp, %grp_s);
+  for my $n (0 .. $subj->nelem - 1) {
+    my $s = '';
+    $s .= $_->[$n]
+      for (@$raw_ivs[@{ $opt->{BTWN} }]);
+    push @grp, $s;                 # group membership
+    $s .= $subj($n);               # keep track of total uniq subj
+    $grp_s{$s} = 1;
+  }
+  my $grp = PDL::Stats::Kmeans::iv_cluster \@grp;
+
+  my $spdl = zeroes $subj->dim(0), keys(%grp_s) - $grp->dim(1);
+  my ($d0, $d1) = (0, 0);
+  for my $g (0 .. $grp->dim(1)-1) {
+    my $gsub = $subj( which $grp( ,$g) )->effect_code;
+    my ($nobs, $nsub) = $gsub->dims;
+    $spdl($d0:$d0+$nobs-1, $d1:$d1+$nsub-1) .= $gsub;
+    $d0 += $nobs;
+    $d1 += $nsub;
+  }
+
+  # if btwn factor involved, or highest order inter for within factors
+  # elem is undef, so that
+  # @errors ind matches @$ivs_ref, with an extra elem at the end for subj
+
+    # mark btwn factors to exclude *subj error terms
+  my @qr = map { "(?:$idv->[$_])" } @{ $opt->{BTWN} };
+  my $qr = join('|', @qr);
+
+  my @errors = map
+    { my @fs = split '~', $idv->[$_];
+        # btwn factors involved
+      if ($qr and $idv->[$_] =~ /$qr/)                            { undef }
+        # highest order interaction of within factors
+      elsif ( @fs == @$raw_ivs - @{$opt->{BTWN}} )                { undef }
+      else            { PDL::clump($ivs_ref->[$_] * $spdl->dummy(1), 1,2) }
+    } 0 .. $#$ivs_ref;
+
+  push @errors, $spdl;
+
+  return \@errors;
 }
 
 =head2 dummy_code
@@ -1289,8 +1556,6 @@ sub PDL::ols {
   my $Y = $ivs x $y2->dummy(0);
 
   my $C;
-    # somehow PDL::Slatec gives weird numbers when CONST=>0
-#  if ( $opt{CONST} and $SLATEC ) {
   if ( $SLATEC ) {
     $C = PDL::Slatec::matinv( $ivs x $ivs->xchg(0,1) );
   }
@@ -1868,10 +2133,6 @@ sub PDL::plot_scree {
     unless $opt{WIN};
   return;
 }
-
-=head1 TO DO
-
-=head2 anova_repeated
 
 =head1 SEE ALSO
 

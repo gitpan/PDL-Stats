@@ -1,5 +1,12 @@
 Revision history for PDL-Stats
 
+0.3.0	12/03/2009
+        GLM::anova_rptd! works for purely within designs
+        GLM::anova bug fix--not messing up caller @ if passed @ ref in IV instead of pdl
+	change prereq from PDL to PDL::Lite
+	Stats.pm quick-start guide update
+	t/stats_glm logistic test modified to use more proper numbers in x
+
 0.2.8	11/04/2009
 	fixed minor bug (mismatched nseed and self cluster pdls. oops) in switching to use cluster assignment as stop criteria. btw initial R2 now based on self instead of seeds.
 
