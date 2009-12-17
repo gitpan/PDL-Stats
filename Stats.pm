@@ -8,11 +8,11 @@ PDL::Stats - a collection of statistics modules in Perl Data Language, with a qu
 
 =head1 VERSION
 
-Version 0.3.0
+Version 0.3.1
 
 =cut
 
-$VERSION = '0.3.0';
+$VERSION = '0.3.1';
 
 
 =head1 DESCRIPTION
@@ -31,6 +31,7 @@ Loads modules named below, making the functions available in the current namespa
     use PDL::Stats::Basic;
     use PDL::Stats::GLM;
     use PDL::Stats::Kmeans;
+    use PDL::Stats::TS;
  
     # and the following if installed;
 
@@ -202,7 +203,7 @@ Essentially a perl shell with "use PDL;" at start up. Comes with the PDL install
 
 =head2 For more info
 
-L<PDL::Impatient>
+PDL::Impatient
 
 =cut
 
@@ -224,7 +225,7 @@ use PDL::Stats::Basic;
 use PDL::Stats::Distr;
 use PDL::Stats::GLM;
 use PDL::Stats::Kmeans;
-#use PDL::Stats::TS;
+use PDL::Stats::TS;
 use PDL::GSL::CDF;
 
 EOD

@@ -18,10 +18,8 @@ Kmeans/Makefile.PL
 t/stats_basic.t
 t/stats_glm.t
 t/stats_kmeans.t
+t/stats_ts.t
 t/t_try
-pms/Basic.pm
-pms/Distr.pm
-pms/GLM.pm
-pms/CDF.pm
-pms/Kmeans.pm
+TS/ts.pp
+TS/Makefile.PL
 META.yml                                 Module meta-data (added by MakeMaker)

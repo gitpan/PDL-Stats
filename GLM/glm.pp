@@ -706,7 +706,7 @@ Usage:
     y_pred
     [
      [
-      [0.66363636  1.5969697  2.4166667  3.1227273  3.7151515  4.1939394  4.5590909  4.8106061  4.9484848  4.9727273]
+      [0.66363636  1.5969697  2.4166667  3.1227273  ...  4.9727273]
     ...
 
 =cut
@@ -718,7 +718,7 @@ sub PDL::ols_t {
   my %opt = ( CONST => 1 );
   $opt and $opt{uc $_} = $opt->{$_} for (keys %$opt);
 
-  $y = $y->squeeze;
+#  $y = $y->squeeze;
   $ivs = $ivs->dummy(1) if $ivs->getndims == 1;
     # set up ivs and const as ivs
   $opt{CONST} and
@@ -1050,8 +1050,8 @@ sub PDL::anova {
   @ret{ sort keys %$cm_ref } = @$cm_ref{ sort keys %$cm_ref };
 
   my $highest = join(' ~ ', @{ $opt{IVNM} });
-  $cm_ref->{"# $highest # m"}->plot_means(
-                       {SE=>$cm_ref->{"# $highest # se"}, IVNM=>$idv, } )
+  $cm_ref->{"# $highest # m"}->plot_means( $cm_ref->{"# $highest # se"}, 
+                                           { IVNM=>$idv } )
     if $opt{PLOT};
 
   return %ret;
@@ -1176,7 +1176,9 @@ sub _combinations {
 
 =head2 anova_rptd
 
-Repeated measures anova. Uses type III sum of squares. Automatically removes bad data listwise, ie remove a subject's data if there is any cell missing for the subject.
+Repeated measures anova. Uses type III sum of squares. The standard error (se) for the means are based on the relevant mean squared error from the anova, ie it is pooled across levels of the effect.
+
+anova_rptd supports bad value in the dependent variable. It automatically removes bad data listwise, ie remove a subject's data if there is any cell missing for the subject.
 
 Between-subject factor support upcoming. Stay tuned.
 
@@ -1193,15 +1195,15 @@ Usage:
     Subject Beer    Wings   Recall
     Alex    1       1       8
     Alex    1       2       9
-    Alex    1       3       5
+    Alex    1       3       12
     Alex    2       1       7
     Alex    2       2       9
     Alex    2       3       12
     Brian   1       1       12
     Brian   1       2       13
     Brian   1       3       14
-    Brian   2       1       16
-    Brian   2       2       13
+    Brian   2       1       9
+    Brian   2       2       8
     Brian   2       3       14
     ...
   
@@ -1210,72 +1212,72 @@ Usage:
   
     my ($b, $w, $dv) = $data->dog;
       # subj and ivs can be 1d pdl or @ ref
-    my %m = $dv->anova_rptd( $subj, $b, $w, {ivnm=>['beer', 'wings']} );
+    my %m = $dv->anova_rptd( $subj, $b, $w, {ivnm=>['Beer', 'Wings']} );
   
     print "$_\t$m{$_}\n" for (sort keys %m);
-  
-    # beer # m
-    [
-     [ 10.333333      12.75]
-    ]
-  
-    # beer # se
-    [
-     [  0.987293  1.4622782]
-    ]
-  
-    # beer ~ wings # m
-    [
-     [  9.5    11]
-     [10.75 12.25]
-     [10.75    15]
-    ]
-  
-    # beer ~ wings # se
-    [
-     [       1.5  3.2403703]
-     [  1.652019  2.1360009]
-     [ 2.3228933  2.3804761]
-    ]
-  
-    # wings # m
-    [
-     [ 10.25   11.5 12.875]
-    ]
-  
-    # wings # se
-    [
-     [  1.677051  1.2817399  1.7365555]
-    ]
-  
-    ss_residual	23.5833333333333
-    ss_subject	309.125
-    ss_total	445.958333333333
-    | beer | F	5.90866510538642
-    | beer | F_p	0.0932654283732719
-    | beer | df	1
-    | beer | ms	35.0416666666667
-    | beer | ss	35.0416666666667
-    | beer || err df	3
-    | beer || err ms	5.93055555555555
-    | beer || err ss	17.7916666666667
-    | beer ~ wings | F	1.28268551236749
-    | beer ~ wings | F_p	0.343728237549026
-    | beer ~ wings | df	2
-    | beer ~ wings | ms	5.04166666666667
-    | beer ~ wings | ss	10.0833333333333
-    | beer ~ wings || err df	6
-    | beer ~ wings || err ms	3.93055555555556
-    | beer ~ wings || err ss	23.5833333333333
-    | wings | F	3.63736263736264
-    | wings | F_p	0.0923372901981468
-    | wings | df	2
-    | wings | ms	13.7916666666667
-    | wings | ss	27.5833333333333
-    | wings || err df	6
-    | wings || err ms	3.79166666666666
-    | wings || err ss	22.75
 
+    # Beer # m	
+    [
+     [ 10.916667  8.9166667]
+    ]
+    
+    # Beer # se	
+    [
+     [ 0.4614791  0.4614791]
+    ]
+    
+    # Beer ~ Wings # m	
+    [
+     [   10     7]
+     [ 10.5  9.25]
+     [12.25  10.5]
+    ]
+    
+    # Beer ~ Wings # se	
+    [
+     [0.89170561 0.89170561]
+     [0.89170561 0.89170561]
+     [0.89170561 0.89170561]
+    ]
+    
+    # Wings # m	
+    [
+     [   8.5  9.875 11.375]
+    ]
+    
+    # Wings # se	
+    [
+     [0.67571978 0.67571978 0.67571978]
+    ]
+    
+    ss_residual	19.0833333333333
+    ss_subject	24.8333333333333
+    ss_total	133.833333333333
+    | Beer | F	9.39130434782609
+    | Beer | F_p	0.0547977008378944
+    | Beer | df	1
+    | Beer | ms	24
+    | Beer | ss	24
+    | Beer || err df	3
+    | Beer || err ms	2.55555555555556
+    | Beer || err ss	7.66666666666667
+    | Beer ~ Wings | F	0.510917030567687
+    | Beer ~ Wings | F_p	0.623881438624431
+    | Beer ~ Wings | df	2
+    | Beer ~ Wings | ms	1.625
+    | Beer ~ Wings | ss	3.25000000000001
+    | Beer ~ Wings || err df	6
+    | Beer ~ Wings || err ms	3.18055555555555
+    | Beer ~ Wings || err ss	19.0833333333333
+    | Wings | F	4.52851711026616
+    | Wings | F_p	0.0632754786153548
+    | Wings | df	2
+    | Wings | ms	16.5416666666667
+    | Wings | ss	33.0833333333333
+    | Wings || err df	6
+    | Wings || err ms	3.65277777777778
+    | Wings || err ss	21.9166666666667
+ 
 =cut
 
 *anova_rptd = \&PDL::anova_rptd;
@@ -1312,7 +1314,7 @@ sub PDL::anova_rptd {
   my $ibad = which $self->isbad;
   my $sj_bad = $sj($ibad)->uniq;
   if ($sj_bad->nelem) {
-    carp $sj_bad->nelem . " subjects with missing data removed"
+    print STDERR $sj_bad->nelem . " subjects with missing data removed\n"
       if $opt{V};
     $sj = $sj->setvaltobad($_)
       for (list $sj_bad);
@@ -1395,12 +1397,17 @@ sub PDL::anova_rptd {
 
   my $cm_ref
     = _cell_means( $self, $ivs_cm_ref, $i_cmo_ref, $idv, \@pdl_ivs_raw );
+  my @ls = map { $_->uniq->nelem } @pdl_ivs_raw;
+  $cm_ref
+    = _fix_rptd_se( $cm_ref, \%ret, $opt{'IVNM'}, \@ls, $sj->uniq->nelem );
+
+    # integrate mean and se into %ret
     # sort bc we can't count on perl % internal key order implementation
   @ret{ sort keys %$cm_ref } = @$cm_ref{ sort keys %$cm_ref };
 
   my $highest = join(' ~ ', @{ $opt{IVNM} });
-  $cm_ref->{"# $highest # m"}->plot_means(
-                        {SE=>$cm_ref->{"# $highest # se"}, IVNM=>$idv, } )
+  $cm_ref->{"# $highest # m"}->plot_means( $cm_ref->{"# $highest # se"}, 
+                                           { IVNM=>$idv } )
     if $opt{PLOT};
 
   return %ret;
@@ -1452,6 +1459,34 @@ sub _add_errors {
   push @errors, $spdl;
 
   return \@errors;
+}
+
+sub _fix_rptd_se {
+    # if ivnm lvls_ref for within ss only this can work for mixed design
+  my ($cm_ref, $ret, $ivnm, $lvls_ref, $n) = @_;
+
+  my @se = grep /se$/, keys %$cm_ref;
+  @se = map { /^# (.+?) # se$/; $1; } @se;
+
+  my @n_obs
+    = map {
+        my @ivs = split / ~ /, $_;
+        my $i_ivs = which_id $ivnm, \@ivs;
+        my $icollapsed = setops pdl(0 .. $#$ivnm), 'XOR', $i_ivs;
+        
+        my $collapsed = $icollapsed->nelem?
+                          pdl( @$lvls_ref[(list $icollapsed)] )->prodover
+                      :   1
+                      ;
+        $n * $collapsed;
+      } @se;
+
+  for my $i (0 .. $#se) {
+    $cm_ref->{"# $se[$i] # se"}
+      .= sqrt( $ret->{"| $se[$i] || err ms"} / $n_obs[$i] );
+  }
+
+  return $cm_ref;
 }
 
 =head2 dummy_code
@@ -1615,7 +1650,7 @@ Usage:
     ss_model        19.8787878787879
     ss_residual     1.72121212121212
     ss_total        21.6
-    y_pred  [0.98181818  1.2242424  1.5272727  1.8909091  2.3151515 2.8  3.3454545  3.9515152  4.6181818  5.3454545]
+    y_pred  [0.98181818  1.2242424  1.5272727  ...  4.6181818  5.3454545]
  
 =cut
 
@@ -1755,7 +1790,7 @@ Usage:
     b_chisq [ 13.460233  13.065797]
     b_p     [0.00024367345 0.00030073723]
     iter    154
-    y_pred  [3.9794114e-179 9.8230271e-147 2.4247772e-114 5.9854711e-82 1.477491e-49 3.6471308e-17 1 1 1 1]
+    y_pred  [3.9794114e-179 9.8230271e-147 2.4247772e-114 ... 1 1 1]
  
 =cut
 
@@ -2065,7 +2100,7 @@ sub PDL::plot_means {
   }
   $self = $self->squeeze;
   if ($self->ndims > 4) {
-    carp "data is > 4D!";
+    carp "Data is > 4D. No plot here.";
     return;
   }
 
@@ -2104,7 +2139,9 @@ sub PDL::plot_means {
                  SIZE=>[$opt{SIZE}*$nx, $opt{SIZE}*$ny], UNIT=>3);
   }
 
-  my ($min, $max) = $self->minmax;
+  my ($min, $max) = defined $se? pdl($self + $se, $self - $se)->minmax
+                  :              $self->minmax
+                  ;
   my $range = $max - $min;
   my $p = 0;   # panel
 
@@ -2112,8 +2149,8 @@ sub PDL::plot_means {
     for my $x (0..$self->dim($iD[2])-1) {
       $p ++;
       my $tl = '';
-         $tl = $opt{IVNM}->[$iD[2]] . " $x"  if $self->dim($iD[2]) > 1;
-         $tl.= ' ' . $opt{IVNM}->[$iD[3]] . " $y"  if $self->dim($iD[3]) > 1;
+      $tl = $opt{IVNM}->[$iD[2]] . " $x"        if $self->dim($iD[2]) > 1;
+      $tl.= ' ' . $opt{IVNM}->[$iD[3]] . " $y"  if $self->dim($iD[3]) > 1;
       $w->env( 0, $self->dim($iD[0])-1, $min - 2*$range/5, $max + $range/5,
              { XTitle=>$opt{IVNM}->[$iD[0]], YTitle=>$opt{DVNM}, Title=>$tl,                 PANEL=>$p, AXIS=>['BCNT', 'BCNST'], Border=>1, 
               } )
@@ -2226,9 +2263,9 @@ sub PDL::plot_scree {
 
 =head1 SEE ALSO
 
-L<PDL::Fit::Linfit>
+PDL::Fit::Linfit
 
-L<PDL::Fit::LM>
+PDL::Fit::LM
 
 =head1 REFERENCES
 

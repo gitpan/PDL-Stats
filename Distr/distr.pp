@@ -1140,9 +1140,9 @@ GSL - GNU Scientific Library
 
 =head1 SEE ALSO
 
-L<PDL::Graphics::PGPLOT>
+PDL::Graphics::PGPLOT
 
-L<PDL::GSL::CDF>
+PDL::GSL::CDF
 
 =head1 AUTHOR
 

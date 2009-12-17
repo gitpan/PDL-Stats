@@ -1251,11 +1251,11 @@ sub which_id {
 
 =head1 SEE ALSO
 
-L<PDL::Basic> (hist for frequency counts)
+PDL::Basic (hist for frequency counts)
 
-L<PDL::Ufunc> (sum, avg, median, min, max, etc.)
+PDL::Ufunc (sum, avg, median, min, max, etc.)
 
-L<PDL::GSL::CDF> (various cumulative distribution functions)
+PDL::GSL::CDF (various cumulative distribution functions)
 
 =head1 	REFERENCES
 

@@ -1,5 +1,12 @@
 Revision history for PDL-Stats
 
+0.3.1	12/16/2009
+	Removed pms--relying on pdl-stats.sourceforge.net for web documentation instead of CPAN. Minor pod update.
+	GLM::ols_t removed $y->squeeze, so that edge case like ols_t on 1 obs threads properly (y[1,10]->ols_t(x[1,10]->dummy(1), {const=>0}) gives b[1,10]).
+	GLM::anova_rptd se fix.
+	GLM::anova and anova_rptd plot se fix.
+	PDL::Stats::TS included. ***alpha alpha*** code! Included because I'm tired of maintaining it separately from PDL::Stats.
+
 0.3.0	12/03/2009
         GLM::anova_rptd! works for purely within designs
         GLM::anova bug fix--not messing up caller @ if passed @ ref in IV instead of pdl

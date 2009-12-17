@@ -16,12 +16,31 @@ GSL
 
 INSTALLATION
 
-To install all included modules, run the following commands in the current dir:
+To install all included modules, extract the files from the archive by entering this at a shell,
 
-	perl Makefile.PL
-	make
-	make test
-	make install
+    tar xvf PDL-Stats-xxx.tar.gz
+
+then,
+
+    cd PDL-Stats-xxx
+
+and run the following commands:
+
+    perl Makefile.PL
+    make
+    make test
+    sudo make install
+
+If you don't have permission to run sudo, you can specify an alternative path,
+
+    perl Makefile.PL PREFIX=/home/user/my_perl_lib
+    make
+    make test
+    make install
+
+then add /home/user/my_perl_lib to your PERL5LIB environment variable.
+
+If you have trouble installing PDL, you can look for help at the PDL wiki or PDL mailing list.
 
 SUPPORT AND DOCUMENTATION
 
@@ -30,22 +49,25 @@ perldoc command.
 
     perldoc PDL::Stats
     perldoc PDL::Stats::Basic
-    perldoc PDL::Stats::Distr
-    perldoc PDL::Stats::GLM
-    perldoc PDL::Stats::Kmeans
-    perldoc PDL::Stats::TS
-    perldoc PDL::GSL::CDF
+
+etc.
 
 You can also look for information at:
+
+    Home
+      http://pdl-stats.sourceforge.net
 
     Search CPAN
       http://search.cpan.org/dist/PDL-Stats/
 
-    Sourceforge
-      http://pdl-stats.sourceforge.net
-
     Mailing list
       https://lists.sourceforge.net/lists/listinfo/pdl-stats-help
+
+If you notice a bug or have a request, please submit a report at
+
+      http://sourceforge.net/projects/pdl-stats/support
+
+If you would like to help develop or maintain the package, please email me at the address below.
 
 
 COPYRIGHT AND LICENCE

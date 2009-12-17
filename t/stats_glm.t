@@ -315,11 +315,13 @@ sub t_anova_rptd_3way {
   my $ans_bc_ems = 2.63194444444445;
   my $ans_abc_F = 1.71299093655589;
   my $ans_abc_m = pdl(qw( 4 2.75 2.75 2.5 3.25 4.25 3.5 1.75 2 3.5 2.75 2.25 ))->reshape(2,2,3);
+  my $ans_ab_se = ones(2, 2) * 0.55014729;
   return  ($m{'| a | F'} - $ans_a_F)
         + ($m{'| a | ms'} - $ans_a_ms)
         + ($m{'| a ~ c | F'} - $ans_ac_F)
         + ($m{'| b ~ c || err ms'} - $ans_bc_ems)
         + ($m{'| a ~ b ~ c | F'} - $ans_abc_F)
         + sum( $m{'# a ~ b ~ c # m'} - $ans_abc_m )
+        + sum( $m{'# a ~ b # se'} - $ans_ab_se )
   ;
 }
