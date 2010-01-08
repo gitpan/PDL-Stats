@@ -5,7 +5,7 @@ use warnings;
 use Test::More;
 
 BEGIN {
-    plan tests => 17;
+    plan tests => 18;
       # 1-2
     use_ok( 'PDL::Stats::Basic' );
     use_ok( 'PDL::Stats::Kmeans' );
@@ -27,7 +27,7 @@ is(tapprox( t_iv_cluster(), 0 ), 1);
 sub t_iv_cluster {
   my @a = qw( a a b b );
   my $a = iv_cluster( \@a );
-  return ( $a - pdl(byte, [1,1,0,0], [0,0,1,1]) )->sum;
+  return abs($a - pdl(byte, [1,1,0,0], [0,0,1,1]))->sum;
 }
 
 is(tapprox( t_assign(), 0 ), 1);
@@ -38,7 +38,7 @@ sub t_assign {
   $a %= 2;
   my $c = $a->assign($centroid);
   my $cluster = pdl(byte, [1,0,1,0], [0,1,0,1]);
-  return ($c - $cluster)->sum;
+  return abs($c - $cluster)->sum;
 }
 
 is(tapprox( t_centroid(), 0 ), 1);
@@ -212,7 +212,7 @@ sub t_pca_cluster {
 [qw( -0.419717   0.649522 -0.0223668   0.434389)],
 [qw(  0.325314   0.173015  -0.400108  0.0350236)],
   );
-  my $c = $l->pca_cluster({v=>0,ncomp=>4});
+  my $c = $l->pca_cluster({v=>0,ncomp=>4,plot=>0});
   return ( $c - pdl(byte, [1,0,1,0], [0,1,0,0], [0,0,0,1]) )->sum;
 }
   # 17
@@ -223,4 +223,12 @@ sub t_pca_cluster {
   my $d = PDL::Stats::Kmeans::_d_point2line( $a, $b, $c );
 
   is( tapprox(sum($d - pdl(1.754116, 1.4142136)), 0), 1, '_d_point2line');
+}
+  # 18
+{
+  my $c0 = pdl(byte, [1,0,1,0], [0,1,0,1]);
+  my $c1 = pdl(byte, [0,0,0,1], [0,1,1,0]);
+  my $c = cat $c0, $c1;
+  my $ans = pdl( [0,1,0,1], [-1,1,1,0] );
+  is( abs($c->which_cluster - $ans)->sum, 0, 'which_cluster');
 }

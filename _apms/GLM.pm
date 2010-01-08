@@ -1,8 +1,26 @@
-#!/usr/bin/perl
 
-pp_add_exported('', 'ols_t', 'anova', 'anova_rptd', 'dummy_code', 'effect_code', 'effect_code_w', 'ols', 'r2_change', 'logistic', 'pca', 'pca_sorti', 'plot_means', 'plot_scree');
+#
+# GENERATED WITH PDL::PP! Don't modify!
+#
+package PDL::Stats::GLM;
 
-pp_addpm({At=>'Top'}, <<'EOD');
+@EXPORT_OK  = qw(  ols_t anova anova_rptd dummy_code effect_code effect_code_w ols r2_change logistic pca pca_sorti plot_means plot_scree PDL::PP fill_m PDL::PP fill_rand PDL::PP dev_m PDL::PP stddz PDL::PP sse PDL::PP mse PDL::PP rmse PDL::PP pred_logistic PDL::PP d0 PDL::PP dm PDL::PP dvrs );
+%EXPORT_TAGS = (Func=>[@EXPORT_OK]);
+
+use PDL::Core;
+use PDL::Exporter;
+use DynaLoader;
+
+
+
+   
+   @ISA    = ( 'PDL::Exporter','DynaLoader' );
+   push @PDL::Core::PP, __PACKAGE__;
+   bootstrap PDL::Stats::GLM ;
+
+
+
+
 
 use strict;
 use warnings;
@@ -67,56 +85,30 @@ P-values, where appropriate, are provided if PDL::GSL::CDF is installed.
 
 =cut
 
-EOD
 
-pp_addhdr('
-#include <math.h>
-#include <stdlib.h>
-#include <time.h>
 
-'
-);
 
-pp_def('fill_m',
-  Pars      => 'a(n); float+ [o]b(n)',
-  Inplace   => 1,
-  GenericTypes => [F, D],
-  HandleBad => 1,
-  Code      => '
-    loop (n) %{
-      $b() = $a();
-    %}
-  ',
-  BadCode   => '
-    $GENERIC(b) sa, m;
-    sa = 0;
-    long N = 0;
-    loop (n) %{
-      if ( $ISGOOD($a()) ) {
-        sa += $a();
-        N  ++;
-      }
-    %}
-    m = N?   sa / N : 0;
-    loop (n) %{
-      if ( $ISGOOD($a()) ) {
-        $b() = $a();
-      }
-      else {
-        $b() = m;
-      }
-    %}
-  ',
-  CopyBadStatusCode => '
-    /* propogate badflag if inplace AND it has changed */
-    if ( a == b && $ISPDLSTATEBAD(a) )
-      PDL->propogate_badflag( b, 0 );
 
-    /* always make sure the output is "good" */
-    $SETPDLSTATEGOOD(b);
 
-  ',
-  Doc      => '
+
+=head1 FUNCTIONS
+
+
+
+=cut
+
+
+
+
+
+
+=head2 fill_m
+
+=for sig
+
+  Signature: (a(n); float+ [o]b(n))
+
+
 
 =for ref
 
@@ -136,52 +128,33 @@ Replaces bad values with sample mean. Mean is set to 0 if all obs are bad. Can b
       [      7       3       7 5.66667]
      ] 
 
-  ',
-  BadDoc  => '
+  
+
+=for bad
+
+
 The output pdl badflag is cleared.
-  ',
+  
 
-);
+=cut
 
-pp_def('fill_rand',
-  Pars      => 'a(n); [o]b(n)',
-  Inplace   => 1,
-  HandleBad => 1,
-  Code      => '
-    loop (n) %{
-      $b() = $a();
-    %}
-  ',
-  BadCode   => '
-    $GENERIC(a) *g[ $SIZE(n) ];
-    long i, j;
-    i = 0;
-    srand( time( NULL ) );
-    loop (n) %{
-      if ( $ISGOOD($a()) ) {
-        g[i++] = &$a();
-      }
-    %}
-    loop (n) %{
-      if ( $ISGOOD($a()) ) {
-        $b() = $a();
-      }
-      else {
-        j = (long) ((i-1) * (double)(rand()) / (double)(RAND_MAX) + .5);
-        $b() = *g[j];
-      }
-    %}
-  ',
-  CopyBadStatusCode => '
-    /* propogate badflag if inplace AND it has changed */
-    if ( a == b && $ISPDLSTATEBAD(a) )
-      PDL->propogate_badflag( b, 0 );
 
-    /* always make sure the output is "good" */
-    $SETPDLSTATEGOOD(b);
 
-  ',
-  Doc      => '
+
+
+
+*fill_m = \&PDL::fill_m;
+
+
+
+
+=head2 fill_rand
+
+=for sig
+
+  Signature: (a(n); [o]b(n))
+
+
 
 =for ref
 
@@ -202,251 +175,192 @@ Replaces bad values with random sample (with replacement) of good observations f
      [7 3 7 7]
     ]
 
-  ',
-  BadDoc  => '
+  
+
+=for bad
+
+
 The output pdl badflag is cleared. 
-  ',
+  
 
-);
+=cut
 
-pp_def('dev_m',
-  Pars      => 'a(n); float+ [o]b(n)',
-  Inplace   => 1,
-  GenericTypes => [F, D],
-  HandleBad => 1,
-  Code      => '
-    $GENERIC(b) sa, m;
-    sa = 0; m = 0;
-    long N = $SIZE(n);
-    loop (n) %{
-      sa += $a();
-    %}
-    m  = sa / N;
-    loop (n) %{
-      $b() = $a() - m;
-    %}
-  ',
-  BadCode   => '
-    $GENERIC(b) sa, m;
-    sa = 0; m = 0;
-    long N = 0;
-    loop (n) %{
-      if ( $ISGOOD($a()) ) {
-        sa += $a();
-        N  ++;
-      }
-    %}
-    m = sa / N;
-    loop (n) %{
-      if ( $ISGOOD($a()) ) {
-        $b() = $a() - m;
-      }
-      else {
-        $SETBAD($b());
-      }
-    %}
-  ',
-  Doc      => '
+
+
+
+
+
+*fill_rand = \&PDL::fill_rand;
+
+
+
+
+=head2 dev_m
+
+=for sig
+
+  Signature: (a(n); float+ [o]b(n))
+
+
 
 =for ref
 
 Replaces values with deviations from the mean. Can be done inplace.
 
-  ',
+  
 
-);
+=for bad
 
-pp_def('stddz',
-  Pars      => 'a(n); float+ [o]b(n)',
-  Inplace   => 1,
-  GenericTypes => [F, D],
-  HandleBad => 1,
-  Code      => '
-    $GENERIC(b) sa, a2, m, sd;
-    sa = 0; a2 = 0;
-    long N = $SIZE(n);
-    loop (n) %{
-      sa += $a();
-      a2 += pow($a(),2);
-    %}
-    m  = sa / N;
-    sd = pow( a2/N - pow(m,2), .5 );
-    loop (n) %{
-      $b() = (sd>0)?  (($a() - m) / sd) : 0;
-    %}
-  ',
-  BadCode   => '
-    $GENERIC(b) sa, a2, m, sd;
-    sa = 0; a2 = 0; m = 0; sd = 0;
-    long N = 0;
-    loop (n) %{
-      if ( $ISGOOD($a()) ) {
-        sa += $a();
-        a2 += pow($a(),2);
-        N  ++;
-      }
-    %}
-    if (N) {
-      m  = sa / N;
-      sd = pow( a2/N - pow(m,2), .5 );
-      loop (n) %{
-        if ( $ISGOOD(a()) ) {
-/* sd? does not work, presumably due to floating point */
-          $b() = (sd>0)? (($a() - m) / sd) : 0;
-        }
-        else {
-          $SETBAD(b());
-        }
-      %}
-    }
-    else {
-      loop (n) %{
-        $SETBAD(b());
-      %}
-    }
-  ',
-  Doc       => '
+dev_m does handle bad values.
+It will set the bad-value flag of all output piddles if the flag is set for any of the input piddles.
+
+
+=cut
+
+
+
+
+
+
+*dev_m = \&PDL::dev_m;
+
+
+
+
+=head2 stddz
+
+=for sig
+
+  Signature: (a(n); float+ [o]b(n))
+
+
 =for ref
 
 Standardize ie replace values with z_scores based on sample standard deviation from the mean (replace with 0s if stdv==0). Can be done inplace.
 
-  ',
+  
 
-);
+=for bad
 
-pp_def('sse',
-  Pars      => 'a(n); b(n); float+ [o]c()',
-  GenericTypes => [F, D],
-  HandleBad => 1,
-  Code      => '
-    $GENERIC(c) ss = 0;
-    loop (n) %{
-      ss += pow($a() - $b(), 2);
-    %}
-    $c() = ss;
-  ',
-  BadCode  => '
-    $GENERIC(c) ss = 0;
-    loop (n) %{
-      if ( $ISBAD($a()) || $ISBAD($b()) ) { }
-      else {
-        ss += pow($a() - $b(), 2);
-      }
-    %}
-    $c() = ss;
-  ',
-  Doc      => '
+stddz does handle bad values.
+It will set the bad-value flag of all output piddles if the flag is set for any of the input piddles.
+
+
+=cut
+
+
+
+
+
+
+*stddz = \&PDL::stddz;
+
+
+
+
+=head2 sse
+
+=for sig
+
+  Signature: (a(n); b(n); float+ [o]c())
+
+
 
 =for ref
 
 Sum of squared errors between actual and predicted values.
 
-  ',
+  
 
-);
+=for bad
 
-pp_def('mse',
-  Pars      => 'a(n); b(n); float+ [o]c()',
-  GenericTypes => [F, D],
-  HandleBad => 1,
-  Code      => '
-    $GENERIC(c) ss = 0;
-    loop (n) %{
-      ss += pow($a() - $b(), 2);
-    %}
-    $c() = ss / $SIZE(n);
-  ',
-  BadCode  => '
-    $GENERIC(c) ss = 0;
-    long N = 0;
-    loop (n) %{
-      if ( $ISBAD($a()) || $ISBAD($b()) ) { }
-      else {
-        ss += pow($a() - $b(), 2);
-        N ++;
-      }
-    %}
-    if (N) { $c() = ss/N;  }
-    else   { $SETBAD(c()); }
-  ',
-  Doc      => '
+sse does handle bad values.
+It will set the bad-value flag of all output piddles if the flag is set for any of the input piddles.
+
+
+=cut
+
+
+
+
+
+
+*sse = \&PDL::sse;
+
+
+
+
+=head2 mse
+
+=for sig
+
+  Signature: (a(n); b(n); float+ [o]c())
+
+
 
 =for ref
 
 Mean of squared errors between actual and predicted values, ie variance around predicted value.
 
-  ',
+  
 
-);
+=for bad
+
+mse does handle bad values.
+It will set the bad-value flag of all output piddles if the flag is set for any of the input piddles.
 
 
-pp_def('rmse',
-  Pars      => 'a(n); b(n); float+ [o]c()',
-  GenericTypes => [F, D],
-  HandleBad => 1,
-  Code      => '
-    $GENERIC(c) d2;
-    d2 = 0;
-    long N = $SIZE(n);
-    loop (n) %{
-      d2 += pow($a() - $b(), 2);
-    %}
-    $c() = sqrt( d2 / N );
-  ',
-  BadCode  => '
-    $GENERIC(c) d2;
-    d2 = 0;
-    long N = 0;
-    loop (n) %{
-      if ( $ISBAD($a()) || $ISBAD($b()) ) { }
-      else {
-        d2 += pow($a() - $b(), 2);
-	N  ++;
-      }
-    %}
-    if (N)  { $c() = sqrt( d2 / N ); }
-    else    { $SETBAD(c()); }
-  ',
-  Doc      => '
+=cut
+
+
+
+
+
+
+*mse = \&PDL::mse;
+
+
+
+
+=head2 rmse
+
+=for sig
+
+  Signature: (a(n); b(n); float+ [o]c())
+
+
 
 =for ref
 
 Root mean squared error, ie stdv around predicted value.
 
-  ',
+  
 
-);
+=for bad
 
-pp_def('pred_logistic',
-  Pars      => 'a(n,m); b(m); float+ [o]c(n)',
-  GenericTypes => [F, D],
-  HandleBad => 1,
-  Code      => '
-    loop (n) %{
-      $GENERIC(c) l = 0;
-      loop (m) %{
-        l += $a() * $b();
-      %}
-      $c() = 1 / ( 1 + exp(-l) );
-    %}
-  ',
-  BadCode  => '
-    loop (n) %{
-      $GENERIC(c) l = 0;
-      long bad = 0;
-      loop (m) %{
-        if ( $ISBAD($a()) || $ISBAD($b()) ) {
-          bad = 1;
-        }
-        else {
-          l += $a() * $b();
-        }
-      %}
-      if (bad) { $SETBAD( $c() ); }
-      else     { $c() = 1 / ( 1 + exp(-l) ); }
-    %}
-  ',
-  Doc      => '
+rmse does handle bad values.
+It will set the bad-value flag of all output piddles if the flag is set for any of the input piddles.
+
+
+=cut
+
+
+
+
+
+
+*rmse = \&PDL::rmse;
+
+
+
+
+=head2 pred_logistic
+
+=for sig
+
+  Signature: (a(n,m); b(m); float+ [o]c(n))
+
+
 
 =for ref
 
@@ -458,50 +372,33 @@ Calculates predicted prob value for logistic regression.
 
     $pred = $x->glue(1,ones($x->dim(0)))->pred_logistic( $m{b} );
 
-  ',
+  
 
-);
+=for bad
 
-pp_def('d0',
-  Pars      => 'a(n); float+ [o]c()',
-  GenericTypes => [F, D],
-  HandleBad => 1,
-  Code      => '
-    $GENERIC(c) p, ll;
-    p = 0; ll = 0;
-    long N = $SIZE(n);
-    loop (n) %{
-      p += $a();
-    %}
-    p /= N;
-    loop (n) %{
-      ll += $a()? log( p ) : log( 1 - p );
-    %}
-    $c() = -2 * ll;
-  ',
-  BadCode  => '
-    $GENERIC(c) p, ll;
-    p = 0; ll = 0;
-    long N = 0;
-    loop (n) %{
-      if ($ISGOOD( $a() )) {
-        p += $a();
-        N ++;
-      }
-    %}
-    if (N) {
-      p /= N;
-      loop (n) %{
-        if ($ISGOOD( $a() ))
-          ll += $a()? log( p ) : log( 1 - p );
-      %}
-      $c() = -2 * ll;
-    }
-    else {
-      $SETBAD(c());
-    }
-  ',
-  Doc      => '
+pred_logistic does handle bad values.
+It will set the bad-value flag of all output piddles if the flag is set for any of the input piddles.
+
+
+=cut
+
+
+
+
+
+
+*pred_logistic = \&PDL::pred_logistic;
+
+
+
+
+=head2 d0
+
+=for sig
+
+  Signature: (a(n); float+ [o]c())
+
+
 =for usage
 
     my $d0 = $y->d0();
@@ -510,34 +407,33 @@ pp_def('d0',
 
 Null deviance for logistic regression.
 
-  ',
+  
 
-);
+=for bad
 
-pp_def('dm',
-  Pars      => 'a(n); b(n); float+ [o]c()',
-  GenericTypes => [F, D],
-  HandleBad => 1,
-  Code      => '
-    $GENERIC(c) ll;
-    ll = 0;
-    loop (n) %{
-      ll += $a()? log( $b() ) : log( 1 - $b() );
-    %}
-    $c() = -2 * ll;
-  ',
-  BadCode  => '
-    $GENERIC(c) ll;
-    ll = 0;
-    loop (n) %{
-      if ( $ISBAD($a()) || $ISBAD($b()) ) { }
-      else {
-        ll += $a()? log( $b() ) : log( 1 - $b() );
-      }
-    %}
-    $c() = -2 * ll;
-  ',
-  Doc      => '
+d0 does handle bad values.
+It will set the bad-value flag of all output piddles if the flag is set for any of the input piddles.
+
+
+=cut
+
+
+
+
+
+
+*d0 = \&PDL::d0;
+
+
+
+
+=head2 dm
+
+=for sig
+
+  Signature: (a(n); b(n); float+ [o]c())
+
+
 =for usage
 
     my $dm = $y->dm( $y_pred );
@@ -549,42 +445,56 @@ pp_def('dm',
 
 Model deviance for logistic regression.
 
-  ',
+  
 
-);
+=for bad
+
+dm does handle bad values.
+It will set the bad-value flag of all output piddles if the flag is set for any of the input piddles.
 
 
-pp_def('dvrs',
-  Pars      => 'a(); b(); float+ [o]c()',
-  GenericTypes => [F, D],
-  HandleBad => 1,
-  Code      => '
-    $c() = $a()?       sqrt( -2 * log($b()) )
-         :        -1 * sqrt( -2 * log(1-$b()) )
-         ;
-  ',
-  BadCode  => '
-  if ( $ISBAD($a()) || $ISBAD($b()) ) {
-    $SETBAD( $c() );
-  }
-  else {
-    $c() = $a()?       sqrt( -2 * log($b()) )
-         :        -1 * sqrt( -2 * log(1-$b()) )
-         ;
-  }
+=cut
 
-  ',
-  Doc      => '
+
+
+
+
+
+*dm = \&PDL::dm;
+
+
+
+
+=head2 dvrs
+
+=for sig
+
+  Signature: (a(); b(); float+ [o]c())
+
+
 
 =for ref
 
 Deviance residual for logistic regression.
 
-  ',
+  
 
-);
+=for bad
 
-pp_addpm(<<'EOD');
+dvrs does handle bad values.
+It will set the bad-value flag of all output piddles if the flag is set for any of the input piddles.
+
+
+=cut
+
+
+
+
+
+
+*dvrs = \&PDL::dvrs;
+
+
 
 =head2 ols_t
 
@@ -2316,6 +2226,14 @@ All rights reserved. There is no warranty. You are allowed to redistribute this 
 
 =cut
 
-EOD
 
-pp_done();
+
+;
+
+
+
+# Exit with OK status
+
+1;
+
+		   

@@ -1,5 +1,12 @@
 Revision history for PDL-Stats
 
+0.3.2	01/08/2010
+	Kmeans kmeans CNTRD checks undef besides PDL->null. opt{V} printout update
+	Kmeans added which_cluster
+	Kmeans pca_cluster does scree plot with cutoff line
+	GLM logistic pod update
+	GLM anova anova_rptd pca plot_scree plotting options update
+
 0.3.1	12/16/2009
 	Removed pms--relying on pdl-stats.sourceforge.net for web documentation instead of CPAN. Minor pod update.
 	GLM::ols_t removed $y->squeeze, so that edge case like ols_t on 1 obs threads properly (y[1,10]->ols_t(x[1,10]->dummy(1), {const=>0}) gives b[1,10]).

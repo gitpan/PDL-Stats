@@ -1,7 +1,26 @@
-#!/usr/bin/perl
-pp_add_exported('', 'random_cluster', 'iv_cluster');
 
-pp_addpm({At=>'Top'}, <<'EOD');
+#
+# GENERATED WITH PDL::PP! Don't modify!
+#
+package PDL::Stats::Kmeans;
+
+@EXPORT_OK  = qw(  random_cluster iv_cluster PDL::PP _random_cluster PDL::PP which_cluster PDL::PP assign PDL::PP centroid PDL::PP _d_p2l );
+%EXPORT_TAGS = (Func=>[@EXPORT_OK]);
+
+use PDL::Core;
+use PDL::Exporter;
+use DynaLoader;
+
+
+
+   
+   @ISA    = ( 'PDL::Exporter','DynaLoader' );
+   push @PDL::Core::PP, __PACKAGE__;
+   bootstrap PDL::Stats::Kmeans ;
+
+
+
+
 
 use Carp;
 use PDL::LiteF;
@@ -64,18 +83,21 @@ plot the clusters if there are only 2 vars
 
 =cut
 
-EOD
-
-pp_addhdr('
-#include <math.h>
-#include <stdlib.h>
-#include <time.h>
-
-'
-);
 
 
-pp_addpm( <<'EOD' );
+
+
+
+
+=head1 FUNCTIONS
+
+
+
+=cut
+
+
+
+
 
 =head2 random_cluster
 
@@ -104,77 +126,22 @@ sub random_cluster {
   return $cluster;
 }
 
-EOD
 
-pp_def('_random_cluster',
-  Pars  => 'byte a(o,c); byte [o]b(o,c)',
-  Inplace   => 1,
-  GenericTypes => [U],
-  Code  => '
-if ($SIZE(c) > $SIZE(o))
-  barf("more cluster than obs!");
-/* threading w time only srand produces identical clusters */
-int r;
-srand( time( NULL ) + r++);
-int nc = $SIZE(c);
-loop (o) %{
-  int cl = rand() % nc;
-  loop (c) %{
-    $b() = (c == cl)? 1 : 0;
-  %}
-%}
 
-  ',
 
-  Doc   => undef,
 
-);
+*_random_cluster = \&PDL::_random_cluster;
 
-pp_def('which_cluster',
-  Pars  => 'byte a(o,c); int [o]b(o)',
-  GenericTypes => [U,L],
-  HandleBad    => 1,
-  Code  => '
 
-int cl;
 
-loop(o) %{
-  cl=-1;
-  loop(c) %{
-    if ($a()) {
-      cl = c;
-      break;
-    }
-  %}
-  $b() = cl;
-%}
 
-  ',
+=head2 which_cluster
 
-  BadCode  => '
+=for sig
 
-int cl;
+  Signature: (byte a(o,c); int [o]b(o))
 
-loop(o) %{
-  cl=-1;
-  loop(c) %{
-    if ($ISBAD(a()) || !$a()) {  }
-    else {
-      cl = c;
-      break;
-    }
-  %}
-  if (cl==-1) {
-    $SETBAD(b());
-  }
-  else {
-    $b() = cl;
-  }
-%}
-
-  ',
-
-  Doc   => 'Given cluster mask dim [obs x clu], returns the cluster index to which an obs belong.
+Given cluster mask dim [obs x clu], returns the cluster index to which an obs belong.
 
 Does not support overlapping clusters. If an obs has TRUE value for multiple clusters, the returned index is the first cluster the obs belongs to. If an obs has no TRUE value for any cluster, the return val is set to -1 or BAD if the input mask has badflag set.
 
@@ -191,82 +158,33 @@ Usage:
     perldl> p $ic = $c_mask->which_cluster                
     [0 0 1 1 2 2]
 
-',
 
-);
 
-pp_def('assign',
-  Pars  => 'data(o,v); centroid(c,v); byte [o]cluster(o,c)',
-  GenericTypes => [F,D],
-  HandleBad => 1,
-  Code  => '
+=for bad
 
-$GENERIC(centroid) ssc, ssmin;
-int cl = 0;
+which_cluster does handle bad values.
+It will set the bad-value flag of all output piddles if the flag is set for any of the input piddles.
 
-loop (o) %{
-  ssmin = -1;
-  loop (c) %{
-    ssc = 0;
-    loop (v) %{
-      ssc += pow($data() - $centroid(), 2);
-    %}
-/* notice that if multiple ssc == ssmin the 1st is taken as cluster */
-    if (ssmin < 0 || ssmin > ssc) {
-      cl = c;
-      ssmin = ssc;
-    }
-  %}
-  loop (c) %{
-    $cluster() = (c == cl)? 1 : 0;
-  %}
-%}
 
-  ',
-  BadCode  => '
+=cut
 
-$GENERIC(centroid) ssc, ssmin;
-long cl, nvc;
-cl = 0;
 
-loop (o) %{
-  ssmin = -1;
-  loop (c) %{
-    ssc = 0;
-    nvc = 0;
-    loop (v) %{
-      if ($ISBAD( $data() ) || $ISBAD( $centroid() )) {  }
-      else {
-        ssc += pow($data() - $centroid(), 2);
-        nvc ++;
-      }
-    %}
-    if (nvc) {
-      ssc /= nvc;
-    }
-    else {
-/* taking advantage of the fact that 1st valid ssmin takes precedence */
-/* so ssc has no effect if there is already ssmin. or it is -1 */
-      ssc = ssmin;
-    }
-/* notice that if multiple ssc == ssmin the 1st is taken as cluster */
-    if (ssmin < 0 || ssmin > ssc) {
-      cl = c;
-      ssmin = ssc;
-    }
-  %}
-  loop (c) %{
-    if (ssmin >= 0) {
-      $cluster() = (c == cl)? 1 : 0;
-    }
-    else {
-      $SETBAD($cluster());
-    }
-  %}
-%}
 
-  ',
-  Doc   => '
+
+
+
+*which_cluster = \&PDL::which_cluster;
+
+
+
+
+=head2 assign
+
+=for sig
+
+  Signature: (data(o,v); centroid(c,v); byte [o]cluster(o,c))
+
+
 
 =for ref
 
@@ -297,87 +215,33 @@ Takes data pdl dim [obs x var] and centroid pdl dim [cluster x var] and returns 
      [1 1 1 0]    # cluster 0 membership
      [0 0 0 1]    # cluster 1 membership
     ]
-  ',
+  
 
-);
+=for bad
 
-pp_def('centroid',
-  Pars  => 'data(o,v); cluster(o,c); float+ [o]m(c,v); float+ [o]ss(c,v)',
-  GenericTypes => [F,D],
-  HandleBad => 1,
-  Code  => '
-$GENERIC(m) s[ $SIZE(c) ][ $SIZE(v) ], s2[ $SIZE(c) ][ $SIZE(v) ];
-long n[ $SIZE(c) ];
+assign does handle bad values.
+It will set the bad-value flag of all output piddles if the flag is set for any of the input piddles.
 
-loop (c) %{
-  loop (v) %{
-    s[c][v]  = 0.0;
-    s2[c][v] = 0.0;
-  %}
-  n[c] = 0;
-  loop (o) %{
-    if ($cluster()) {
-      n[c] ++;
-      loop (v) %{
-        s[c][v]  += $data();
-        s2[c][v] += pow($data(), 2);
-      }
-    %}
-  %}
 
-  if (n[c]) {
-    loop (v) %{
-      $m()  = s[c][v] / n[c];
-      $ss() = s2[c][v] - pow(s[c][v] / n[c], 2) * n[c];
-    %}
-  }
-  else {
-    loop (v) %{
-      $m() = 0;
-      $ss() = 0;
-    %}
-/*    barf("please make sure there is no empty cluster!");  */
-  }
-%}
+=cut
 
-  ',
-  BadCode  => '
-$GENERIC(m) s[ $SIZE(c) ][ $SIZE(v) ], s2[ $SIZE(c) ][ $SIZE(v) ];
-long n[ $SIZE(c) ][ $SIZE(v) ];
 
-loop (c) %{
-  loop (v) %{
-    s[c][v]  = 0.0;
-    s2[c][v] = 0.0;
-    n[c][v]  = 0;
-  %}
-  loop (o) %{
-    if ($ISBAD($cluster()) || !$cluster()) { }
-    else {
-      loop (v) %{
-        if ($ISGOOD( $data() )) {
-          s[c][v]  += $data();
-          s2[c][v] += pow($data(), 2);
-          n[c][v]  ++;
-        }
-      %}
-    }
-  %}
 
-  loop (v) %{
-    if (n[c][v]) {
-      $m()  = s[c][v] / n[c][v];
-      $ss() = s2[c][v] / n[c][v] - pow(s[c][v] / n[c][v], 2);
-    }
-    else {
-      $m() = 0;
-      $ss() = 0;
-    }
-  %}
-%}
 
-  ',
-  Doc   => '
+
+
+*assign = \&PDL::assign;
+
+
+
+
+=head2 centroid
+
+=for sig
+
+  Signature: (data(o,v); cluster(o,c); float+ [o]m(c,v); float+ [o]ss(c,v))
+
+
 =for ref
 
 Takes data dim [obs x var] and mask dim [obs x cluster], returns mean and ss (ms when data contains bad values) dim [cluster x var], using data where mask = 1. Multiple cluster membership for an obs is okay. If a cluster is empty all means and ss are set to zero for that cluster.
@@ -418,11 +282,24 @@ Takes data dim [obs x var] and mask dim [obs x cluster], returns mean and ss (ms
      [17.5    5]
     ]
 
-  ',
+  
 
-);
+=for bad
 
-pp_addpm(<<'EOD');
+centroid does handle bad values.
+It will set the bad-value flag of all output piddles if the flag is set for any of the input piddles.
+
+
+=cut
+
+
+
+
+
+
+*centroid = \&PDL::centroid;
+
+
 
 sub _scree_ind {
   # use as scree cutoff the point with max distance to the line formed
@@ -456,36 +333,13 @@ sub _d_point2line {
   return _d_p2l( $self->mv(0,-1)->dog, $p1->mv(0,-1)->dog, $p2->mv(0,-1)->dog );
 }
 
-EOD
 
-pp_def('_d_p2l',
-  Pars      => 'xc(); yc(); xa(); ya(); xb(); yb(); float+ [o]d()',
-  GenericTypes => [F, D],
-  HandleBad => 1,
-  Code      => '
-    $GENERIC(d) xba, yba;
-    xba = $xb() - $xa();
-    yba = $yb() - $ya();
 
-    $d() = fabs( xba * ($ya() - $yc()) - ($xa() - $xc()) * yba )
-         / sqrt( pow(xba,2) + pow(yba,2) );
-  ',
-  BadCode   => '
-    if ($ISBAD(xc()) || $ISBAD(yc()) || $ISBAD(xa()) || $ISBAD(ya()) || $ISBAD(xb()) || $ISBAD(yb()) )
-         {  $SETBAD(d());  }
-    else {
-      $GENERIC(d) xba, yba;
-      xba = $xb() - $xa();
-      yba = $yb() - $ya();
-  
-      $d() = fabs( xba * ($ya() - $yc()) - ($xa() - $xc()) * yba )
-           / sqrt( pow(xba,2) + pow(yba,2) );
-    }
-  ',
-  Doc      => undef,
-);
 
-pp_addpm(<<'EOD');
+
+*_d_p2l = \&PDL::_d_p2l;
+
+
 
 =head2 kmeans
 
@@ -853,7 +707,14 @@ All rights reserved. There is no warranty. You are allowed to redistribute this 
 
 =cut
 
-EOD
 
 
-pp_done();
+;
+
+
+
+# Exit with OK status
+
+1;
+
+		   

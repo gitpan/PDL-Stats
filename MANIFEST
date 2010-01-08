@@ -22,4 +22,10 @@ t/stats_ts.t
 t/t_try
 TS/ts.pp
 TS/Makefile.PL
+_apms/Basic.pm
+_apms/CDF.pm
+_apms/Distr.pm
+_apms/GLM.pm
+_apms/Kmeans.pm
+_apms/TS.pm
 META.yml                                 Module meta-data (added by MakeMaker)
