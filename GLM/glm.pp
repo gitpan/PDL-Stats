@@ -1179,18 +1179,17 @@ sub _combinations {
 
 =head2 anova_rptd
 
-Repeated measures anova. Uses type III sum of squares. The standard error (se) for the means are based on the relevant mean squared error from the anova, ie it is pooled across levels of the effect.
+Repeated measures and mixed model anova. Uses type III sum of squares. The standard error (se) for the means are based on the relevant mean squared error from the anova, ie it is pooled across levels of the effect.
 
 anova_rptd supports bad value in the dependent variable. It automatically removes bad data listwise, ie remove a subject's data if there is any cell missing for the subject.
 
-Between-subject factor support upcoming. Stay tuned.
-
 Default options (case insensitive):
 
-    V      => 1,       # carps if bad value in dv
-    IVNM   => undef,   # auto filled as ['IV_0', 'IV_1', ... ]
-    PLOT   => 1,       # plots highest order effect
-                       # can set plot_means options here
+    V      => 1,    # carps if bad value in dv
+    IVNM   => [],   # auto filled as ['IV_0', 'IV_1', ... ]
+    BTWN   => [],   # indices of between-subject IVs (matches IVNM indices)
+    PLOT   => 1,    # plots highest order effect
+                    # can set plot_means options here
 
 Usage:
 
@@ -1281,6 +1280,11 @@ Usage:
     | Wings || err df	6
     | Wings || err ms	3.65277777777778
     | Wings || err ss	21.9166666666667
+
+For mixed model anova, ie when there are between-subject IVs involved, feed the IVs as above, but specify in BTWN which IVs are between-subject. For example, if we had added age as a between-subject IV in the above example, we would do 
+
+    my %m = $dv->anova_rptd( $subj, $age, $b, $w,
+                           { ivnm=>['Age', 'Beer', 'Wings'], btwn=>[0] });
  
 =cut
 
@@ -1296,13 +1300,14 @@ sub PDL::anova_rptd {
   }
 
   my %opt = (
-    V      => 1,       # carps if bad value in dv
-    IVNM   => undef,   # auto filled as ['IV_0', 'IV_1', ... ]
-    BTWN   => [],      # not implemented yet
-    PLOT   => 1,       # plots highest order effect
+    V      => 1,    # carps if bad value in dv
+    IVNM   => [],   # auto filled as ['IV_0', 'IV_1', ... ]
+    BTWN   => [],   # indices of between-subject IVs (matches IVNM indices)
+    PLOT   => 1,    # plots highest order effect
   );
   $opt and $opt{uc $_} = $opt->{$_} for (keys %$opt);
-  $opt{IVNM} ||= [ map { "IV_$_" } 0 .. $#ivs_raw ];
+  $opt{IVNM} = [ map { "IV_$_" } 0 .. $#ivs_raw ]
+    if !@{ $opt{IVNM} };
   my @idv = @{ $opt{IVNM} };
 
   my %ret;
@@ -1337,13 +1342,12 @@ sub PDL::anova_rptd {
 
     # matches $ivs_ref, with an extra last pdl for subj effect
   my $err_ref
-    = _add_errors( $sj, $ivs_ref, $idv, \@ivs_raw, \%opt );
+    = _add_errors( $sj, $ivs_ref, $idv, \@pdl_ivs_raw, \%opt );
 
     # stitch together
   my $ivs = PDL->null->glue( 1, @$ivs_ref );
-  $ivs = $ivs->glue(1, grep { defined $_ } @$err_ref);
+  $ivs = $ivs->glue(1, grep { defined($_) and ref($_) } @$err_ref);
   $ivs = $ivs->glue(1, ones $ivs->dim(0));
-
   my $b_full = $self->ols_t( $ivs, {CONST=>0} );
 
   $ret{ss_total} = $self->ss;
@@ -1354,37 +1358,52 @@ sub PDL::anova_rptd {
     my $e = ($k > $#$ivs_ref)?  '| err' : '';
     my $i = ($k > $#$ivs_ref)?  $k - @$ivs_ref : $k;
 
-    if (!defined $full[$k]) {
+    if (!defined $full[$k]) {     # ss_residual as error
       $ret{ "| $idv->[$i] |$e ss" } = $ret{ss_residual};
         # highest ord inter for purely within design, (p-1)*(q-1)*(n-1)
       $ret{ "| $idv->[$i] |$e df" }
-        = pdl(map { $_->dim(1) } @full[0 .. $#ivs_raw, -1])->prodover;
-      $ret{ "| $idv->[$i] |$e ms" }
-        = $ret{ "| $idv->[$i] |$e ss" } / $ret{ "| $idv->[$i] |$e df" };
-      next EFFECT;
-    }
-
-    my (@G, $G, $b_G);
-    @G = grep { $_ != $k and defined $full[$_] } (0 .. $#full);
- 
-    next EFFECT
-      unless @G;
-
-    $G = PDL->null->glue( 1, @full[@G] );
-    $G = $G->glue(1, ones $G->dim(0));
-    $b_G = $self->ols_t( $G, {CONST=>0} );
-
-    if ($k == $#full) {
-      $ret{ss_subject}
-        = $self->sse(sumover($b_G * $G->transpose)) - $ret{ss_residual};
-    }
-    else {
-      $ret{ "| $idv->[$i] |$e ss" }
-        = $self->sse(sumover($b_G * $G->transpose)) - $ret{ss_residual};
+        = pdl(map { $_->dim(1) } @full[0 .. $#ivs_raw])->prodover;
       $ret{ "| $idv->[$i] |$e df" }
-        = $full[$k]->dim(1);
+        *= ref($full[-1])?   $full[-1]->dim(1)
+        :                    $err_ref->[$err_ref->[-1]]->dim(1)
+        ;
       $ret{ "| $idv->[$i] |$e ms" }
         = $ret{ "| $idv->[$i] |$e ss" } / $ret{ "| $idv->[$i] |$e df" };
+    }
+    elsif (ref $full[$k]) {       # unique error term
+      my (@G, $G, $b_G);
+      @G = grep { $_ != $k and defined $full[$_] } (0 .. $#full);
+   
+      next EFFECT
+        unless @G;
+  
+      $G = PDL->null->glue( 1, grep { ref $_ } @full[@G] );
+      $G = $G->glue(1, ones $G->dim(0));
+      $b_G = $self->ols_t( $G, {CONST=>0} );
+  
+      if ($k == $#full) {
+        $ret{ss_subject}
+          = $self->sse(sumover($b_G * $G->transpose)) - $ret{ss_residual};
+      }
+      else {
+        $ret{ "| $idv->[$i] |$e ss" }
+          = $self->sse(sumover($b_G * $G->transpose)) - $ret{ss_residual};
+        $ret{ "| $idv->[$i] |$e df" }
+          = $full[$k]->dim(1);
+        $ret{ "| $idv->[$i] |$e ms" }
+          = $ret{ "| $idv->[$i] |$e ss" } / $ret{ "| $idv->[$i] |$e df" };
+      }
+    }
+    else {                        # repeating error term
+      if ($k == $#full) {
+        $ret{ss_subject} = $ret{"| $idv->[$full[$k]] |$e ss"};
+      }
+      else {
+        $ret{ "| $idv->[$i] |$e ss" } = $ret{"| $idv->[$full[$k]] |$e ss"};
+        $ret{ "| $idv->[$i] |$e df" } = $ret{"| $idv->[$full[$k]] |$e df"};
+        $ret{ "| $idv->[$i] |$e ms" }
+          = $ret{ "| $idv->[$i] |$e ss" } / $ret{ "| $idv->[$i] |$e df" };
+      }
     }
   }
     # have all iv, inter, and error effects. get F and F_p
@@ -1425,7 +1444,7 @@ sub _add_errors {
   my (@grp, %grp_s);
   for my $n (0 .. $subj->nelem - 1) {
     my $s = '';
-    $s .= $_->[$n]
+    $s .= $_->($n)
       for (@$raw_ivs[@{ $opt->{BTWN} }]);
     push @grp, $s;                 # group membership
     $s .= $subj($n);               # keep track of total uniq subj
@@ -1447,20 +1466,48 @@ sub _add_errors {
   # elem is undef, so that
   # @errors ind matches @$ivs_ref, with an extra elem at the end for subj
 
-    # mark btwn factors to exclude *subj error terms
+    # mark btwn factors for error terms
+    # same error term for B(wn) and A(btwn) x B(wn) (Rutherford, p98)
   my @qr = map { "(?:$idv->[$_])" } @{ $opt->{BTWN} };
   my $qr = join('|', @qr);
 
+  my $ie_subj;
   my @errors = map
-    { my @fs = split '~', $idv->[$_];
-        # btwn factors involved
-      if ($qr and $idv->[$_] =~ /$qr/)                            { undef }
-        # highest order interaction of within factors
-      elsif ( @fs == @$raw_ivs - @{$opt->{BTWN}} )                { undef }
+    { my @fs = split ' ~ ', $idv->[$_];
+        # separate bw and wn factors
+        # if only bw, error is bw x subj
+        # if only wn or wn and bw, error is wn x subj
+      my (@wn, @bw);
+      if ($qr) {
+        for (@fs) {
+          /$qr/? push @bw, $_ : push @wn, $_;
+        }
+      }
+      else {
+        @wn = @fs;
+      }
+      $ie_subj = defined($ie_subj)? $ie_subj : $_
+        if !@wn;
+
+      my $err = @wn? join(' ~ ', @wn) : join(' ~ ', @bw);
+      my $ie;               # mark repeating error term
+      for my $i (0 .. $#$ivs_ref) {
+        if ($idv->[$i] eq $err) {
+          $ie = $i;
+          last;
+        }
+      }
+
+        # highest order inter of within factors, use ss_residual as error
+      if ( @wn == @$raw_ivs - @{$opt->{BTWN}} )                   { undef }
+        # repeating btwn factors use ss_subject as error
+      elsif (!@wn and $_ > $ie_subj)                           { $ie_subj }
+        # repeating error term
+      elsif ($_ > $ie)                                              { $ie }
       else            { PDL::clump($ivs_ref->[$_] * $spdl->dummy(1), 1,2) }
     } 0 .. $#$ivs_ref;
 
-  push @errors, $spdl;
+  @{$opt->{BTWN}}? push @errors, $ie_subj : push @errors, $spdl;
 
   return \@errors;
 }

@@ -8,16 +8,18 @@ PDL::Stats - a collection of statistics modules in Perl Data Language, with a qu
 
 =head1 VERSION
 
-Version 0.3.2
+Version 0.4.0
 
 =cut
 
-$VERSION = '0.3.2';
+$VERSION = '0.4.0';
 
 
 =head1 DESCRIPTION
 
 Loads modules named below, making the functions available in the current namespace.
+
+Documentations online at http://pdl-stats.sourceforge.net
  
 =head1 SYNOPSIS
 

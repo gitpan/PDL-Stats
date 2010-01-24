@@ -5,7 +5,7 @@ use warnings;
 use Test::More;
 
 BEGIN {
-    plan tests => 38;
+    plan tests => 40;
       # 1-2
     use_ok( 'PDL::Stats::Basic' );
     use_ok( 'PDL::Stats::GLM' );
@@ -323,5 +323,56 @@ sub t_anova_rptd_3way {
         + ($m{'| a ~ b ~ c | F'} - $ans_abc_F)
         + sum( $m{'# a ~ b ~ c # m'} - $ans_abc_m )
         + sum( $m{'# a ~ b # se'} - $ans_ab_se )
+  ;
+}
+  # 39
+is( tapprox( t_anova_rptd_mixed(), 0 ), 1, 'anova_rptd_mixed' );
+sub t_anova_rptd_mixed {
+  my $d = pdl qw( 3 2 1 5 2 1 5 3 1 4 1 2 3 5 5 3 4 2 1 5 4 3 2 2);
+  my $s = sequence(4)->dummy(1,6)->flat;
+# [0 1 2 3 0 1 2 3 0 1 2 3 0 1 2 3 0 1 2 3 0 1 2 3]
+  my $a = qsort sequence(24) % 3;
+# [0 0 0 0 0 0 0 0 1 1 1 1 1 1 1 1 2 2 2 2 2 2 2 2]
+  my $b = (sequence(8) > 3)->dummy(1,3)->flat;
+# [0 0 0 0 1 1 1 1 0 0 0 0 1 1 1 1 0 0 0 0 1 1 1 1]
+  my %m = $d->anova_rptd($s, $a, $b, {ivnm=>['a','b'],btwn=>[1],plot=>0, v=>0});
+#print "$_\t$m{$_}\n" for (sort keys %m);
+  my $ans_a_F  = 0.0775862068965517;
+  my $ans_a_ms = 0.125;
+  my $ans_ab_F = 1.88793103448276;
+  my $ans_b_F  = 0.585657370517928;
+  my $ans_b_ems = 3.48611111111111;
+  my $ans_ab_se = ones(3,2) * 0.63464776;
+  return  ($m{'| a | F'} - $ans_a_F)
+        + ($m{'| a | ms'} - $ans_a_ms)
+        + ($m{'| a ~ b | F'} - $ans_ab_F)
+        + ($m{'| b | F'} - $ans_b_F)
+        + ($m{'| b || err ms'} - $ans_b_ems)
+        + sum( $m{'# a ~ b # se'} - $ans_ab_se )
+  ;
+}
+
+is( tapprox( t_anova_rptd_mixed_4w(), 0 ), 1, 'anova_rptd_mixed_4w' );
+sub t_anova_rptd_mixed_4w {
+  my ($data, $idv, $subj) = get_data 't/anova_mixed_4w', {v=>0};
+  my ($age, $aa, $beer, $wings, $dv) = $data->dog;
+  my %m = $dv->anova_rptd( $subj, $age, $aa, $beer, $wings, { ivnm=>[qw(age aa beer wings)], btwn=>[0,1], v=>0, plot=>0 } );
+#  print STDERR "$_\t$m{$_}\n" for (sort keys %m);
+
+  my $ans_aa_F = 0.0829493087557666;
+  my $ans_age_aa_F = 2.3594470046083;
+  my $ans_beer_F = 0.00943396226415362;
+  my $ans_aa_beer_F = 0.235849056603778;
+  my $ans_age_beer_wings_F = 0.0303030303030338;
+  my $ans_beer_wings_F = 2.73484848484849;
+  my $ans_4w_F = 3.03030303030303;
+
+  return  ($m{'| aa | F'} - $ans_aa_F)
+        + ($m{'| age ~ aa | F'} - $ans_age_aa_F)
+        + ($m{'| beer | F'} - $ans_beer_F)
+        + ($m{'| aa ~ beer | F'} - $ans_aa_beer_F)
+        + ($m{'| age ~ beer ~ wings | F'} - $ans_age_beer_wings_F)
+        + ($m{'| beer ~ wings | F'} - $ans_beer_wings_F)
+        + ($m{'| age ~ aa ~ beer ~ wings | F'} - $ans_4w_F)
   ;
 }

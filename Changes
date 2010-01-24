@@ -1,5 +1,8 @@
 Revision history for PDL-Stats
 
+0.4.0	01/24/2010
+	GLM anova_rptd supports between subject factors! We are now beta!
+
 0.3.2	01/08/2010
 	Kmeans kmeans CNTRD checks undef besides PDL->null. opt{V} printout update
 	Kmeans added which_cluster
