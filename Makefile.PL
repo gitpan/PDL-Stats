@@ -2,6 +2,11 @@ use strict;
 use warnings;
 use ExtUtils::MakeMaker;
 
+eval 'use PDL::Lite;';
+if ($@) {
+  print STDERR "Please retry after PDL::Lite is properly installed.\n";
+  exit 0;
+}
 
 WriteMakefile(
     NAME                => 'PDL::Stats',

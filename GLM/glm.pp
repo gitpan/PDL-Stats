@@ -136,6 +136,8 @@ Replaces bad values with sample mean. Mean is set to 0 if all obs are bad. Can b
       [      7       3       7 5.66667]
      ] 
 
+=cut
+
   ',
   BadDoc  => '
 The output pdl badflag is cleared.
@@ -202,6 +204,8 @@ Replaces bad values with random sample (with replacement) of good observations f
      [7 3 7 7]
     ]
 
+=cut
+
   ',
   BadDoc  => '
 The output pdl badflag is cleared. 
@@ -251,6 +255,8 @@ pp_def('dev_m',
 =for ref
 
 Replaces values with deviations from the mean. Can be done inplace.
+
+=cut
 
   ',
 
@@ -310,6 +316,8 @@ pp_def('stddz',
 
 Standardize ie replace values with z_scores based on sample standard deviation from the mean (replace with 0s if stdv==0). Can be done inplace.
 
+=cut
+
   ',
 
 );
@@ -340,6 +348,8 @@ pp_def('sse',
 =for ref
 
 Sum of squared errors between actual and predicted values.
+
+=cut
 
   ',
 
@@ -374,6 +384,8 @@ pp_def('mse',
 =for ref
 
 Mean of squared errors between actual and predicted values, ie variance around predicted value.
+
+=cut
 
   ',
 
@@ -412,6 +424,8 @@ pp_def('rmse',
 =for ref
 
 Root mean squared error, ie stdv around predicted value.
+
+=cut
 
   ',
 
@@ -457,6 +471,8 @@ Calculates predicted prob value for logistic regression.
     # glue constant then apply coeff returned by the logistic method
 
     $pred = $x->glue(1,ones($x->dim(0)))->pred_logistic( $m{b} );
+
+=cut
 
   ',
 
@@ -510,6 +526,8 @@ pp_def('d0',
 
 Null deviance for logistic regression.
 
+=cut
+
   ',
 
 );
@@ -549,6 +567,8 @@ pp_def('dm',
 
 Model deviance for logistic regression.
 
+=cut
+
   ',
 
 );
@@ -579,6 +599,8 @@ pp_def('dvrs',
 =for ref
 
 Deviance residual for logistic regression.
+
+=cut
 
   ',
 
@@ -876,7 +898,7 @@ anova supports bad value in the dependent variable.
 Default options (case insensitive):
 
     V      => 1,       # carps if bad value in dv
-    IVNM   => undef,   # auto filled as ['IV_0', 'IV_1', ... ]
+    IVNM   => [],      # auto filled as ['IV_0', 'IV_1', ... ]
     PLOT   => 1,       # plots highest order effect
                        # can set plot_means options here
 
@@ -973,12 +995,13 @@ sub PDL::anova {
   }
 
   my %opt = (
-    IVNM   => undef,   # auto filled as ['IV_0', 'IV_1', ... ]
+    IVNM   => [],      # auto filled as ['IV_0', 'IV_1', ... ]
     PLOT   => 1,       # plots highest order effect
     V      => 1,       # carps if bad value in dv
   );
   $opt and $opt{uc $_} = $opt->{$_} for (keys %$opt);
-  $opt{IVNM} ||= [ map { "IV_$_" } (0 .. $#ivs_raw) ];
+  $opt{IVNM} = [ map { "IV_$_" } (0 .. $#ivs_raw) ]
+    if !$opt{IVNM} or !@{$opt{IVNM}};
   my @idv = @{ $opt{IVNM} };
 
   my %ret;
@@ -1307,7 +1330,7 @@ sub PDL::anova_rptd {
   );
   $opt and $opt{uc $_} = $opt->{$_} for (keys %$opt);
   $opt{IVNM} = [ map { "IV_$_" } 0 .. $#ivs_raw ]
-    if !@{ $opt{IVNM} };
+    if !$opt{IVNM} or !@{ $opt{IVNM} };
   my @idv = @{ $opt{IVNM} };
 
   my %ret;

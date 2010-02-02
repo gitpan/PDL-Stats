@@ -191,6 +191,8 @@ Usage:
     perldl> p $ic = $c_mask->which_cluster                
     [0 0 1 1 2 2]
 
+=cut
+
 ',
 
 );
@@ -297,6 +299,9 @@ Takes data pdl dim [obs x var] and centroid pdl dim [cluster x var] and returns 
      [1 1 1 0]    # cluster 0 membership
      [0 0 0 1]    # cluster 1 membership
     ]
+
+=cut
+
   ',
 
 );
@@ -417,6 +422,8 @@ Takes data dim [obs x var] and mask dim [obs x cluster], returns mean and ss (ms
      [17.5    5]
      [17.5    5]
     ]
+
+=cut
 
   ',
 

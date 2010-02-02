@@ -79,6 +79,7 @@ pp_def('stdv',
 
 Sample standard deviation.
 
+=cut
   ',
 
 );
@@ -121,6 +122,7 @@ pp_def('stdv_unbiased',
 
 Unbiased estimate of population standard deviation.
 
+=cut
   ',
 
 );
@@ -163,6 +165,7 @@ pp_def('var',
 
 Sample variance.
 
+=cut
   ',
 
 );
@@ -205,6 +208,7 @@ pp_def('var_unbiased',
 
 Unbiased estimate of population variance.
 
+=cut
   ',
 
 );
@@ -254,6 +258,8 @@ Standard error of the mean. Useful for calculating confidence intervals.
     $ci_95_upper = $data->average + 1.96 * $data->se;
     $ci_95_lower = $data->average - 1.96 * $data->se;
 
+=cut
+
   ',
 
 );
@@ -296,6 +302,7 @@ pp_def('ss',
 
 Sum of squared deviations from the mean.
 
+=cut
   ',
 
 );
@@ -350,6 +357,7 @@ pp_def('skew',
 
 Sample skewness, measure of asymmetry in data. skewness == 0 for normal distribution.
 
+=cut
   ',
 
 );
@@ -404,6 +412,7 @@ pp_def('skew_unbiased',
 
 Unbiased estimate of population skewness. This is the number in GNumeric Descriptive Statistics.
 
+=cut
   ',
 
 );
@@ -458,6 +467,7 @@ pp_def('kurt',
 
 Sample kurtosis, measure of "peakedness" of data. kurtosis == 0 for normal distribution. 
 
+=cut
   ',
 
 );
@@ -512,6 +522,7 @@ pp_def('kurt_unbiased',
 
 Unbiased estimate of population kurtosis. This is the number in GNumeric Descriptive Statistics.
 
+=cut
   ',
 
 );
@@ -558,6 +569,7 @@ pp_def('cov',
 
 Sample covariance. see B<corr> for ways to call
 
+=cut
   ',
 
 );
@@ -641,6 +653,7 @@ for square corr table
 
 but it is easier and faster to use B<corr_table>.
 
+=cut
   ',
 
 );
@@ -770,6 +783,8 @@ for the same result using B<corr>,
 
 This is also how to use B<t_corr> and B<n_pair> with such a table.
 
+=cut
+
   ',
 
 );
@@ -810,6 +825,7 @@ pp_def('t_corr',
 
 t significance test for Pearson correlations.
 
+=cut
   ',
 
 );
@@ -837,6 +853,7 @@ pp_def('n_pair',
 
 Returns the number of good pairs between 2 lists. Useful with B<corr> (esp. when bad values are involved)
 
+=cut
   ',
 
 );
@@ -897,6 +914,7 @@ pp_def('corr_dev',
 
 Calculates correlations from B<dev_m> vals. Seems faster than doing B<corr> from original vals when data pdl is big
 
+=cut
   ',
 );
 
@@ -976,6 +994,7 @@ pp_def('t_test',
 
 Independent sample t-test, assuming equal var.
 
+=cut
   ',
 );
 
@@ -1055,6 +1074,7 @@ Independent sample t-test, NOT assuming equal var. ie Welch two sample t test. D
 
     my ($t, $df) = $pdl1->t_test( $pdl2 );
 
+=cut
   ',
 );
 
@@ -1108,6 +1128,7 @@ pp_def('t_test_paired',
 
 Paired sample t-test.
 
+=cut
   ',
 );
 

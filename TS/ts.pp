@@ -213,6 +213,8 @@ for (tr = $SIZE(t) - 1; tr >= 0; tr --) {
 
 Differencing. DX(t) = X(t) - X(t-1), DX(0) = X(0). Can be done inplace.
 
+=cut
+
 ',
 );
 
@@ -235,6 +237,8 @@ loop(n) %{
 =for ref
 
 Integration. Opposite of differencing. IX(t) = X(t) + X(t-1), IX(0) = X(0). Can be done inplace.
+
+=cut
 
 ',
 );
@@ -356,6 +360,8 @@ else {
 
 Deseasonalize data using moving average filter the size of period d.
 
+=cut
+
   ',
 );
 
@@ -462,6 +468,8 @@ Filter, exponential smoothing. xf(t) = a * x(t) + (1-a) * xf(t-1)
 
 =for usage
 
+=cut
+
   ',
 );
 
@@ -489,6 +497,8 @@ loop(t) %{
 =for ref
 
 Filter, moving average. xf(t) = sum(x(t-q .. t+q)) / (2q + 1)
+
+=cut
 
   ',
 );
@@ -539,6 +549,8 @@ Mean absolute error. MAE = 1/n * sum( abs(y - y_pred) )
 Usage:
 
     $mae = $y->mae( $y_pred );
+
+=cut
 
 ',
 );
@@ -591,6 +603,60 @@ Usage:
 
     $mape = $y->mape( $y_pred );
 
+=cut
+
+',
+);
+
+pp_def('wmape',
+  Pars  => 'a(n); b(n); float+ [o]c()',
+  GenericTypes => [F,D],
+  HandleBad    => 1,
+  Code  => '
+
+$GENERIC(c) sum_e, sum;
+sum_e=0; sum=0;
+loop(n) %{
+  sum_e += fabs( $a() - $b() );
+  sum += fabs( $a() );
+%}
+$c() = sum_e / sum;
+
+',
+
+  BadCode  => '
+
+$GENERIC(c) sum_e, sum;
+sum_e=0; sum=0;
+loop(n) %{
+  if ($ISBAD(a()) || $ISBAD(b())) { }
+  else {
+    sum_e += fabs( $a() - $b() );
+    sum += fabs( $a() );
+  }
+%}
+if (sum) {
+  $c() = sum_e / sum;
+}
+else {
+  $SETBAD(c());
+}
+
+',
+  Doc   => '
+
+=for ref
+
+Weighted mean absolute percent error. avg(abs(error)) / avg(abs(data)). Much more robust compared to mape with division by zero error (cf. Schütz, W., & Kolassa, 2006).
+
+=for usage
+
+Usage:
+
+    $wmape = $y->wmape( $y_pred );
+
+=cut
+
 ',
 );
 
@@ -631,6 +697,9 @@ Usage:
     perldl> use PDL::GSL::CDF
     perldl> p 1 - gsl_cdf_chisq_P( $chisq, 5 )
     0.0480112934306748
+
+=cut
+
   ',
 );
 
@@ -928,6 +997,8 @@ sub PDL::plot_acf {
 =head1 	REFERENCES
 
 Brockwell, P.J., & Davis, R.A. (2002). Introcution to Time Series and Forecasting (2nd ed.). New York, NY: Springer.
+
+Schütz, W., & Kolassa, S. (2006). Foresight: advantages of the MAD/Mean ratio over the MAPE. Retrieved Jan 28, 2010, from http://www.saf-ag.com/226+M5965d28cd19.html
 
 =head1 AUTHOR
 

@@ -5,7 +5,7 @@ use warnings;
 use Test::More;
 
 BEGIN {
-    plan tests => 19;
+    plan tests => 21;
     use_ok( 'PDL::Stats::TS' );
 }
 
@@ -72,4 +72,12 @@ sub tapprox {
   my $xp2 = $x->pred_ar($b(0:1), 7, {const=>0});
   $xp2($b->dim(0)-1 : -1) += .3;
   is( tapprox(sum($xp - $xp2),0), 1 );
+}
+
+{
+  my $a = sequence 10;
+  my $b = pdl( qw(0 1 1 1 3 6 7 7 9 10) );
+  is( tapprox($a->wmape($b) - 0.177777777777778, 0), 1 );
+  $a = $a->setbadat(4);
+  is( tapprox($a->wmape($b) - 0.170731707317073, 0), 1 );
 }

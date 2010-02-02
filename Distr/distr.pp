@@ -114,6 +114,8 @@ pp_def('mme_beta',
 
 beta distribution. pdf: f(x; a,b) = 1/B(a,b) x^(a-1) (1-x)^(b-1)
 
+=cut
+
   ',
 
 );
@@ -153,6 +155,8 @@ else {
 =for ref
 
 probability density function for beta distribution. x defined on [0,1].
+
+=cut
 
   ',
 
@@ -209,6 +213,8 @@ pp_def('mme_binomial',
 
 binomial distribution. pmf: f(k; n,p) = (n k) p^k (1-p)^(n-k) for k = 0,1,2..n 
 
+=cut
+
   ',
 
 );
@@ -238,6 +244,8 @@ else {
 =for ref
 
 probability mass function for binomial distribution.
+
+=cut
 
   ',
 
@@ -277,6 +285,8 @@ pp_def('mle_exp',
 
 exponential distribution. mle same as method of moments estimate.
 
+=cut
+
   ',
 
 );
@@ -305,6 +315,8 @@ else {
 =for ref
 
 probability density function for exponential distribution.
+
+=cut
 
   ',
 
@@ -359,6 +371,8 @@ pp_def('mme_gamma',
 
 two-parameter gamma distribution
 
+=cut
+
   ',
 
 );
@@ -389,6 +403,8 @@ else {
 =for ref
 
 probability density function for two-parameter gamma distribution.
+
+=cut
 
   ',
 
@@ -439,6 +455,8 @@ pp_def('mle_gaussian',
 
 gaussian aka normal distribution. same results as $data->average and $data->var. mle same as method of moments estimate.
 
+=cut
+
   ',
 
 );
@@ -469,6 +487,8 @@ else {
 =for ref
 
 probability density function for gaussian distribution.
+
+=cut
 
   ',
 
@@ -504,6 +524,8 @@ pp_def('mle_geo',
 
 geometric distribution. mle same as method of moments estimate.
 
+=cut
+
   ',
 
 );
@@ -532,6 +554,8 @@ else {
 =for ref
 
 probability mass function for geometric distribution. x >= 0.
+
+=cut
 
   ',
 
@@ -566,6 +590,8 @@ pp_def('mle_geosh',
 =for ref
 
 shifted geometric distribution. mle same as method of moments estimate.
+
+=cut
 
   ',
 
@@ -604,6 +630,8 @@ else {
 =for ref
 
 probability mass function for shifted geometric distribution. x >= 1.
+
+=cut
 
   ',
 
@@ -661,6 +689,8 @@ pp_def('mle_lognormal',
 
 lognormal distribution. maximum likelihood estimation.
 
+=cut
+
   ',
 
 );
@@ -710,6 +740,8 @@ pp_def('mme_lognormal',
 
 lognormal distribution. method of moments estimation.
 
+=cut
+
   ',
 
 );
@@ -750,6 +782,8 @@ else {
 =for ref
 
 probability density function for lognormal distribution. x > 0. v > 0.
+
+=cut
 
   ',
 
@@ -805,6 +839,8 @@ pp_def('mme_nbd',
 
 negative binomial distribution. pmf: f(x; r,p) = (x+r-1  r-1) p^r (1-p)^x for x=0,1,2...
 
+=cut
+
   ',
 
 );
@@ -837,6 +873,8 @@ else {
 =for ref
 
 probability mass function for negative binomial distribution.
+
+=cut
 
   ',
 
@@ -894,6 +932,8 @@ pp_def('mme_pareto',
 
 pareto distribution. pdf: f(x; k,xm) = k xm^k / x^(k+1) for x >= xm > 0.
 
+=cut
+
   ',
 
 );
@@ -932,6 +972,8 @@ else {
 =for ref
 
 probability density function for pareto distribution. x >= xm > 0.
+
+=cut
 
   ',
 
@@ -973,6 +1015,8 @@ pp_def('mle_poisson',
 
 poisson distribution. pmf: f(x;l) = e^(-l) * l^x / x!
 
+=cut
+
   ',
 
 );
@@ -1001,6 +1045,8 @@ else {
 =for ref
 
 probability mass function for poisson distribution.
+
+=cut
 
   ',
 

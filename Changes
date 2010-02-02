@@ -1,5 +1,11 @@
 Revision history for PDL-Stats
 
+0.4.1	02/02/2010
+	GLM anova anova_rptd IVNM default val matched to [].
+	Makefile.PL exit 0 without PDL::Lite.
+	TS added wmape
+	pod fix for CPAN
+
 0.4.0	01/24/2010
 	GLM anova_rptd supports between subject factors! We are now beta!
 
