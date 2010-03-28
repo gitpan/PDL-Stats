@@ -100,7 +100,7 @@ is( tapprox( $df, 3 ), 1 );
 
   # 43-44
 {
-  my ($data, $idv, $ido) = get_data('t/t_try', {V=>0});
+  my ($data, $idv, $ido) = rtable('t/t_try', {V=>0});
   is( tapprox( sum(pdl($data->dims) - pdl(14, 5)), 0 ), 1 );
   is( tapprox( $data->sum / $data->nbad, 1.70731707317073 ), 1 );
 }

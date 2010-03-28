@@ -28,6 +28,8 @@ use PDL::NiceSlice;
 use PDL::Stats::Basic;
 use PDL::Stats::Kmeans;
 
+$PDL::onlinedoc->scan(__FILE__) if $PDL::onlinedoc;
+
 my $PGPLOT;
   # check for PGPLOT not PDL::Graphics::PGPLOT
 if ( grep { -e "$_/PGPLOT.pm"  } @INC ) {

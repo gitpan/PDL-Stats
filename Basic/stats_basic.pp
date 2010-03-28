@@ -1,6 +1,6 @@
 #!/usr/bin/perl
 
-pp_add_exported('', 'get_data', 'which_id', 
+pp_add_exported('', 'rtable', 'get_data', 'which_id', 
 );
 
 pp_addpm({At=>'Top'}, <<'EOD');
@@ -8,6 +8,8 @@ pp_addpm({At=>'Top'}, <<'EOD');
 use PDL::LiteF;
 use PDL::NiceSlice;
 use Carp;
+
+$PDL::onlinedoc->scan(__FILE__) if $PDL::onlinedoc;
 
 =head1 NAME
 
@@ -1136,11 +1138,11 @@ pp_addpm(<<'EOD');
 
 =head1 METHODS
 
-=head2 get_data
+=head2 rtable
 
 =for ref
 
-Reads either file or file handle*. Returns observation x variable pdl and var and obs ids if specified. Ids in perl @ ref to allow for non-numeric ids. Other non-numeric entries are treated as missing, which are filled with $opt{MISSN} then set to BAD*. Can specify num of data rows to read from top but not arbitrary range.
+Replaces the old method B<get_data>. Reads either file or file handle*. Returns observation x variable pdl and var and obs ids if specified. Ids in perl @ ref to allow for non-numeric ids. Other non-numeric entries are treated as missing, which are filled with $opt{MISSN} then set to BAD*. Can specify num of data rows to read from top but not arbitrary range.
 
 *If passed handle, it will not be closed here.
 
@@ -1150,26 +1152,44 @@ Reads either file or file handle*. Returns observation x variable pdl and var an
 
 Default options (case insensitive):
 
-    V       => 1,        # prints simple status
+    V       => 1,        # verbose. prints simple status
     TYPE    => double,
-    C_ID    => 1,
-    R_ID    => 1,
-    R_VAR   => 0,        # set to 1 if var in rows
+    C_ID    => 1,        # boolean. file has col id.
+    R_ID    => 1,        # boolean. file has row id.
+    R_VAR   => 0,        # boolean. set to 1 if var in rows
     SEP     => "\t",     # can take regex qr//
-    MISSN   => -999,
-    NROW    => '',
+    MISSN   => -999,     # this value treated as missing and set to BAD
+    NROW    => '',       # set to read specified num of data rows
 
 =for usage
 
 Usage:
 
-    ($data, $idv, $ido) = get_data( \*STDIN, { TYPE=>long } );
+Sample file diet.txt:
 
-    $data = get_data( 'zcat big_data.txt.gz |' );
+    uid	height	weight	diet
+    akw	72	320	1
+    bcm	68	268	1
+    clq	67	180	2
+    dwm	70	200	2
+  
+    ($data, $idv, $ido) = rtable 'diet.txt';
+
+    # By default prints out data info and @$idv index and element
+
+    reading diet.txt for data and id... OK.
+    data table as PDL dim o x v: PDL: Double D [4,3]
+    0	height
+    1	weight
+    2	diet
+
+Another way of using it,
+
+    $data = rtable( \*STDIN, {TYPE=>long} );
 
 =cut
 
-sub get_data {
+sub rtable {
     # returns obs x var data matrix and var and obs ids
   my ($src, $opt) = @_;
 
@@ -1192,20 +1212,21 @@ sub get_data {
   local $PDL::undefval = $opt{MISSN};
 
   my $id_c = [];     # match declaration of $id_r for return purpose
-  $opt{C_ID} and do {
+  if ($opt{C_ID}) {
     chomp( $id_c = <$fh_in> );
     my @entries = split $opt{SEP}, $id_c;
     $opt{R_ID} and shift @entries;
     $id_c = \@entries;
-  };
+  }
 
-  my ($c_row, $id_r, $data, @data) = (0, [], PDL->null);
+  my ($c_row, $id_r, $data, @data) = (0, [], PDL->null, );
   while (<$fh_in>) {
     chomp;
     my @entries = split /$opt{SEP}/, $_, -1;
 
     $opt{R_ID} and push @$id_r, shift @entries;
-   
+  
+      # rudimentary check for numeric entry 
     for (@entries) { $_ = $opt{MISSN} unless defined $_ and /\d\b/ }
 
     push @data, pdl( $opt{TYPE}, \@entries );
@@ -1213,7 +1234,8 @@ sub get_data {
     last
       if $opt{NROW} and $c_row == $opt{NROW};
   }
-  # not closing $fh_in here in case it's passed from outside. letting it close by going out of scope if opened here. 
+  # not explicitly closing $fh_in here in case it's passed from outside
+  # $fh_in will close by going out of scope if opened here. 
 
   $data = pdl $opt{TYPE}, @data;
   @data = ();
@@ -1227,7 +1249,7 @@ sub get_data {
     and ($data, $idv, $ido) = ($data->inplace->transpose, $id_c, $id_r);
 
   if ($opt{V}) {
-    print STDERR "OK.\ndata as PDL dim o x v: " . $data->info . "\n";
+    print STDERR "OK.\ndata table as PDL dim o x v: " . $data->info . "\n";
     $idv and print STDERR "$_\t$$idv[$_]\n" for (0..$#$idv);
   }
  
@@ -1236,11 +1258,16 @@ sub get_data {
   return wantarray? (@$idv? ($data, $idv, $ido) : ($data, $ido)) : $data;
 }
 
+sub get_data {
+  print STDERR "get_data() deprecated since version 0.4.2. Please use rtable() instead\n";
+  return rtable @_;
+}
+
 =head2 which_id
 
 =for ref
 
-Lookup specified var (obs) ids in $idv ($ido) (see B<get_data>) and return indices in $idv ($ido) as pdl if found. The indices are ordered by the specified subset. Useful for selecting data by var (obs) id.
+Lookup specified var (obs) ids in $idv ($ido) (see B<rtable>) and return indices in $idv ($ido) as pdl if found. The indices are ordered by the specified subset. Useful for selecting data by var (obs) id.
 
 =for usage
 

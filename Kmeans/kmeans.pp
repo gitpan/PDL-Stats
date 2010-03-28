@@ -8,6 +8,8 @@ use PDL::LiteF;
 use PDL::NiceSlice;
 use PDL::Stats::Basic;
 
+$PDL::onlinedoc->scan(__FILE__) if $PDL::onlinedoc;
+
 =head1 NAME
 
 PDL::Stats::Kmeans -- classic k-means cluster analysis 

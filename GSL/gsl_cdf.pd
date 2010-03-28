@@ -2,6 +2,8 @@
 
 pp_addpm({At=>Top},<<'EOD');
 
+$PDL::onlinedoc->scan(__FILE__) if $PDL::onlinedoc;
+
 =head1 NAME
 
 PDL::GSL::CDF - PDL interface to GSL Cumulative Distribution Functions

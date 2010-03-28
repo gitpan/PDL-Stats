@@ -354,7 +354,7 @@ sub t_anova_rptd_mixed {
 
 is( tapprox( t_anova_rptd_mixed_4w(), 0 ), 1, 'anova_rptd_mixed_4w' );
 sub t_anova_rptd_mixed_4w {
-  my ($data, $idv, $subj) = get_data 't/anova_mixed_4w', {v=>0};
+  my ($data, $idv, $subj) = rtable 't/anova_mixed_4w', {v=>0};
   my ($age, $aa, $beer, $wings, $dv) = $data->dog;
   my %m = $dv->anova_rptd( $subj, $age, $aa, $beer, $wings, { ivnm=>[qw(age aa beer wings)], btwn=>[0,1], v=>0, plot=>0 } );
 #  print STDERR "$_\t$m{$_}\n" for (sort keys %m);

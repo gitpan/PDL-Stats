@@ -14,6 +14,8 @@ use PDL::NiceSlice;
 use PDL::Stats::Basic;
 use PDL::Stats::Kmeans;
 
+$PDL::onlinedoc->scan(__FILE__) if $PDL::onlinedoc;
+
 my $CDF;
 if ( grep { -e "$_/PDL/GSL/CDF.pm"  } @INC ) {
   require PDL::GSL::CDF;

@@ -10,6 +10,8 @@ use warnings;
 use Carp;
 use PDL::LiteF;
 
+$PDL::onlinedoc->scan(__FILE__) if $PDL::onlinedoc;
+
 my $PGPLOT;
 if ( grep { -e "$_/PGPLOT.pm"  } @INC ) {
   require PDL::Graphics::PGPLOT::Window;

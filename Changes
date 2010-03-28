@@ -1,5 +1,9 @@
 Revision history for PDL-Stats
 
+0.4.2	03/27/2010
+	rtable() added to PDL::Basic. get_data() deprecated. Preparing for transitioning to using rcols() for IO.
+	perldl online help support! (ie "? stdv" in perldl works)
+
 0.4.1	02/02/2010
 	GLM anova anova_rptd IVNM default val matched to [].
 	Makefile.PL exit 0 without PDL::Lite.
