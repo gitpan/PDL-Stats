@@ -22,11 +22,13 @@ The terms FUNCTIONS and METHODS are arbitrarily used to refer to methods that ar
 
 =head1 SYNOPSIS
 
+Implement a basic k-means procedure,
+ 
     use PDL::LiteF;
     use PDL::NiceSlice;
     use PDL::Stats;
 
-    my ($data, $idv, $ido) = get_data( $file );
+    my ($data, $idv, $ido) = rtable( $file );
 
     my ($cluster, $centroid, $ss_this, $ss_last, $ss_centroid);
 
@@ -47,22 +49,22 @@ The terms FUNCTIONS and METHODS are arbitrarily used to refer to methods that ar
     }
     while ( $ss_last - $ss_this > $crit );
 
-or just do
+or, use the B<kmeans> function provided here,
 
-    my %result = $data->kmeans( \%opt );
-    print "$_\t$result{$_}\n" for (sort keys %result);
+    my %k = $data->kmeans( \%opt );
+    print "$_\t$k{$_}\n" for (sort keys %k);
 
-plot the clusters if there are only 2 vars
+plot the clusters if there are only 2 vars in $data,
 
     use PDL::Graphics::PGPLOT::Window;
 
     my ($win, $c);
-    $win = pgwin(Dev=>'/xs');
+    $win = pgwin 'xs';
     $win->env($data( ,0)->minmax, $data( ,1)->minmax);
 
-    $win->points( $data->dice_axis(0,which($m{cluster}->(,$_)))->dog,
+    $win->points( $data->dice_axis(0,which($k{cluster}->(,$_)))->dog,
                   {COLOR=>++$c} )
-      for (0..$m{cluster}->dim(1)-1);
+      for (0 .. $k{cluster}->dim(1)-1);
 
 =cut
 
@@ -387,7 +389,7 @@ loop (c) %{
   Doc   => '
 =for ref
 
-Takes data dim [obs x var] and mask dim [obs x cluster], returns mean and ss (ms when data contains bad values) dim [cluster x var], using data where mask = 1. Multiple cluster membership for an obs is okay. If a cluster is empty all means and ss are set to zero for that cluster.
+Takes data dim [obs x var] and mask dim [obs x cluster], returns mean and ss (ms when data contains bad values) dim [cluster x var], using data where mask == 1. Multiple cluster membership for an obs is okay. If a cluster is empty all means and ss are set to zero for that cluster.
 
 =for usage
 
@@ -500,9 +502,30 @@ pp_addpm(<<'EOD');
 
 =for ref
 
-Implements classic kmeans cluster analysis. Tries several different random-seeding and clustering in parallel. Stops when cluster assignment no longer changes. Returns the best result in terms of R2.
+Implements classic k-means cluster analysis. Given a number of observations with values on a set of variables, kmeans puts the observations into clusters that maximizes within-cluster similarity with respect to the variables. Tries several different random seeding and clustering in parallel. Stops when cluster assignment of the observations no longer changes. Returns the best result in terms of R2 from the random-seeding trials.
 
-Alternatively, if a centroid is provided, clustering will proceed from the centroid and there is no random-seeding or multiple tries.
+Instead of random seeding, kmeans also accepts manual seeding. This is done by providing a centroid to the function, in which case clustering will proceed from the centroid and there is no multiple tries.
+
+There are two distinct advantages from seeding with a centroid compared to seeding with predefined cluster membership of a subset of the observations ie "seeds",
+
+(1) a centroid could come from a previous study with a different set of observations;
+
+(2) a centroid could even be "fictional", or in more proper parlance, an idealized prototype with respect to the actual data. For example, if there are 10 person's ratings of 1 to 5 on 4 movies, ie a ratings pdl of dim [10 obs x 4 var], providing a centroid like 
+
+  [
+   [5 0 0 0]
+   [0 5 0 0]
+   [0 0 5 0]
+   [0 0 0 5]
+  ] 
+
+will produce 4 clusters of people with each cluster favoring a different one of the 4 movies. Clusters from an idealized centroid may not give the best result in terms of R2, but they sure are a lot more interpretable.
+
+If clustering has to be done from predefined clusters of seeds, simply calculate the centroid using the B<centroid> function and feed it to kmeans,
+
+  my $centroid = $rating($iseeds, )->centroid( $seeds_cluster );
+
+  my %k = $rating->kmeans( { CNTRD=>$centroid } );
 
 kmeans supports bad value*.
 
@@ -511,11 +534,11 @@ kmeans supports bad value*.
 Default options (case insensitive):
 
   V     => 1,         # prints simple status
-  FULL  => 0,         # returns results for all seeding rounds
+  FULL  => 0,         # returns results for all seeding trials
 
   CNTRD => PDL->null, # optional. pdl [clu x var]. disables next 3 opts
 
-  NTRY  => 5,         # num of seeding rounds
+  NTRY  => 5,         # num of random seeding trials
   NSEED => 1000,      # num of initial seeds, use NSEED up to max obs
   NCLUS => 3,         # num of clusters
 
@@ -590,11 +613,11 @@ sub PDL::kmeans {
   my ($self, $opt) = @_;
   my %opt = (
     V     => 1,         # prints simple status
-    FULL  => 0,         # returns results for all seeding rounds
+    FULL  => 0,         # returns results for all seeding trials
   
     CNTRD => PDL->null, # optional. pdl [clu x var]. disables next 3 opts
   
-    NTRY  => 5,         # num of seeding rounds
+    NTRY  => 5,         # num of random seeding trials
     NSEED => 1000,      # num of initial seeds, use NSEED up to max obs
     NCLUS => 3,         # num of clusters
   );

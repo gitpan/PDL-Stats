@@ -688,7 +688,7 @@ if (N > 1 ) {
       va  = a2 - pow(sa,2) / N;
       vb  = b2 - pow(sb,2) / N;
       r   = cov / sqrt( va * vb );
-      $c(m0=>i, m1=>j) = r;
+      $c(m0=>i, m1=>j) =
       $c(m0=>j, m1=>i) = r;
     }
     $c(m0=>i, m1=>i) = 1.0;
@@ -727,7 +727,7 @@ if ($SIZE(n) >= 2 ) {
         va  = a2 - pow(sa,2) / N;
         vb  = b2 - pow(sb,2) / N;
         r   = cov / sqrt( va * vb );
-        $c(m0=>i, m1=>j) = r;
+        $c(m0=>i, m1=>j) =
         $c(m0=>j, m1=>i) = r;
       }
       else {

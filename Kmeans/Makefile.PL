@@ -5,8 +5,6 @@
    $package = ["kmeans.pp",Kmeans,PDL::Stats::Kmeans];
    %hash = pdlpp_stdargs($package);
    
-   $hash{ 'VERSION_FROM' } = '../Stats.pm';
-   
    WriteMakefile( %hash );
    
    sub MY::postamble {pdlpp_postamble($package)};

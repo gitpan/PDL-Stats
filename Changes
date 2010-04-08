@@ -1,5 +1,9 @@
 Revision history for PDL-Stats
 
+0.4.3	04/08/2010
+	Distr::plot_distr() bug fix.
+	Kmeans::kmeans() pod update.
+
 0.4.2	03/27/2010
 	rtable() added to PDL::Basic. get_data() deprecated. Preparing for transitioning to using rcols() for IO.
 	perldl online help support! (ie "? stdv" in perldl works)

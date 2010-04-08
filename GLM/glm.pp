@@ -1235,8 +1235,8 @@ Usage:
     Brian   2       3       14
     ...
   
-      # get_data allows text only in 1st row and col
-    my ($data, $idv, $subj) = get_data 'recall_w_beer_and_wings.txt';
+      # rtable allows text only in 1st row and col
+    my ($data, $idv, $subj) = rtable 'recall_w_beer_and_wings.txt';
   
     my ($b, $w, $dv) = $data->dog;
       # subj and ivs can be 1d pdl or @ ref
@@ -2095,7 +2095,7 @@ Default options (case insensitive):
 Usage:
 
       # let's see if we replicated the Osgood et al. (1957) study
-    perldl> ($data, $idv, $ido) = get_data 'osgood_exp.csv', {v=>0}
+    perldl> ($data, $idv, $ido) = rtable 'osgood_exp.csv', {v=>0}
 
       # select a subset of var to do pca
     perldl> $ind = which_id $idv, [qw( ACTIVE BASS BRIGHT CALM FAST GOOD HAPPY HARD LARGE HEAVY )]

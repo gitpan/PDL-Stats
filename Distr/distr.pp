@@ -1084,8 +1084,9 @@ Usage:
     my ($ll, $pars)
       = $data->plot_distr( 'gaussian', 'lognormal', {DEV=>'/png'} );
 
-    print "$_\t$ll->{$_}\n" for (sort keys %$ll);
+      # pars are from normalized data (ie data / bin_size)
     print "$_\t@{$pars->{$_}}\n" for (sort keys %$pars);
+    print "$_\t$ll->{$_}\n" for (sort keys %$ll);
 
 =cut
 
@@ -1119,22 +1120,22 @@ sub PDL::plot_distr {
   $step_int = ($range <= $opt{MAXBN})? 1 
             :                          PDL::ceil( $range / $opt{MAXBN} )
             ;
-  $opt{MAXBN} = PDL::ceil( $range / $step );
+    # use min to make it pure scalar for sequence()
+  $opt{MAXBN} = PDL::ceil( $range / $step )->min;
 
   my $hist = $self->double->histogram($step, $self->min, $opt{MAXBN});
     # turn fre into prob
   $hist /= $self->dim(0);
 
-    # use min to make it pure scalar for sequence
-  my $xvals = $self->min + sequence( $opt{MAXBN}->min ) * $step;
+  my $xvals = $self->min + sequence( $opt{MAXBN} ) * $step;
   my $xvals_int
-    = PDL::ceil($self->min) + sequence( $opt{MAXBN}->min ) * $step_int;
+    = PDL::ceil($self->min) + sequence( $opt{MAXBN} ) * $step_int;
   $xvals_int = $xvals_int->where( $xvals_int <= $xvals->max )->sever;
 
   my $win = $opt{WIN};
   if (!$win) {
     $win = pgwin( Dev=>$opt{DEV} );
-    $win->env($xvals->minmax,0,1, {XTitle=>'bins', YTitle=>'probability'});
+    $win->env($xvals->minmax,0,1, {XTitle=>'xvals', YTitle=>'probability'});
   }
 
   $win->line( $xvals, $hist, { COLOR=>$opt{COLOR} } );
@@ -1158,19 +1159,20 @@ sub PDL::plot_distr {
     @funcs = sort @funcs;
     my ($f_para, $f_prob) = @funcs[0, -1];
 
+    my $nrmd = $self / $step;
     eval {
-      my @paras = $self->$f_para();
+      my @paras = $nrmd->$f_para();
       $pars{$distr} = \@paras;
   
       @paras = map { $_->dummy(0) } @paras;
-      $ll{$distr} = $self->$f_prob( @paras )->log->sumover;
+      $ll{$distr} = $nrmd->$f_prob( @paras )->log->sumover;
       push @text, sprintf "$distr  LL = %.2f", $ll{$distr}->sum;
 
       if ($f_prob =~ /^pdf/) { 
-        $win->line( $xvals, $xvals->$f_prob(@paras), {COLOR=>++$c} );
+        $win->line( $xvals, ($xvals/$step)->$f_prob(@paras), {COLOR=>++$c} );
       }
       else {
-        $win->points( $xvals_int, $xvals_int->$f_prob(@paras), {COLOR=>++$c} );
+        $win->points( $xvals_int, ($xvals_int/$step_int)->$f_prob(@paras), {COLOR=>++$c} );
       }
     };
     carp $@ if $@;
