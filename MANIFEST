@@ -15,12 +15,11 @@ GSL/Makefile.PL
 GSL/t/cdf.t
 Kmeans/kmeans.pp
 Kmeans/Makefile.PL
-t/anova_mixed_4w
 t/stats_basic.t
 t/stats_glm.t
+t/stats_ols_rptd.t
 t/stats_kmeans.t
 t/stats_ts.t
-t/t_try
 TS/ts.pp
 TS/Makefile.PL
 META.yml                                 Module meta-data (added by MakeMaker)

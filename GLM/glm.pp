@@ -1,6 +1,6 @@
 #!/usr/bin/perl
 
-pp_add_exported('', 'ols_t', 'anova', 'anova_rptd', 'dummy_code', 'effect_code', 'effect_code_w', 'ols', 'r2_change', 'logistic', 'pca', 'pca_sorti', 'plot_means', 'plot_scree');
+pp_add_exported('', 'ols_t', 'anova', 'anova_rptd', 'dummy_code', 'effect_code', 'effect_code_w', 'interaction_code', 'ols', 'ols_rptd', 'r2_change', 'logistic', 'pca', 'pca_sorti', 'plot_means', 'plot_residuals', 'plot_scree');
 
 pp_addpm({At=>'Top'}, <<'EOD');
 
@@ -16,24 +16,17 @@ use PDL::Stats::Kmeans;
 
 $PDL::onlinedoc->scan(__FILE__) if $PDL::onlinedoc;
 
-my $CDF;
-if ( grep { -e "$_/PDL/GSL/CDF.pm"  } @INC ) {
-  require PDL::GSL::CDF;
-  $CDF = 1;
-}
+eval { require PDL::GSL::CDF; };
+my $CDF = 1 if !$@;
 
-my $SLATEC;
-if ( grep { -e "$_/PDL/Slatec.pm"  } @INC ) {
-  require PDL::Slatec;
-  $SLATEC = 1;
-}
+eval { require PDL::Slatec; };
+my $SLATEC = 1 if !$@;
 
-my $PGPLOT;
-if ( grep { -e "$_/PGPLOT.pm"  } @INC ) {
+eval {
   require PDL::Graphics::PGPLOT::Window;
   PDL::Graphics::PGPLOT::Window->import( 'pgwin' );
-  $PGPLOT = 1;
-}
+};
+my $PGPLOT = 1 if !$@;
 
 =head1 NAME
 
@@ -807,7 +800,7 @@ sub PDL::ols_t {
 
 =for ref
 
-Significance test for the incremental change in R2 when new variable(s) are added to an ols regression model. Returns the change stats as well as stats for both models. Base on B<ols_t>. (One way to make up for the lack of significance tests for coeffs in ols_t).
+Significance test for the incremental change in R2 when new variable(s) are added to an ols regression model. Returns the change stats as well as stats for both models. Based on B<ols_t>. (One way to make up for the lack of significance tests for coeffs in ols_t).
 
 =for options
 
@@ -1214,7 +1207,7 @@ Default options (case insensitive):
     IVNM   => [],   # auto filled as ['IV_0', 'IV_1', ... ]
     BTWN   => [],   # indices of between-subject IVs (matches IVNM indices)
     PLOT   => 1,    # plots highest order effect
-                    # can set plot_means options here
+                    # see plot_means() for more options
 
 Usage:
 
@@ -1239,7 +1232,8 @@ Usage:
     my ($data, $idv, $subj) = rtable 'recall_w_beer_and_wings.txt';
   
     my ($b, $w, $dv) = $data->dog;
-      # subj and ivs can be 1d pdl or @ ref
+      # subj and IVs can be 1d pdl or @ ref
+      # subj must be the first argument
     my %m = $dv->anova_rptd( $subj, $b, $w, {ivnm=>['Beer', 'Wings']} );
   
     print "$_\t$m{$_}\n" for (sort keys %m);
@@ -1582,12 +1576,15 @@ Dummy coding of nominal variable (perl @ ref or 1d pdl) for use in regression.
 
 =cut
 
-sub dummy_code {
+*dummy_code = \&PDL::dummy_code;
+sub PDL::dummy_code {
   my ($var_ref) = @_;
 
   my $var_e = effect_code( $var_ref );
 
-  return $var_e->where( $var_e == -1 ) .= 0;
+  $var_e->where( $var_e == -1 ) .= 0;
+
+  return $var_e;
 }
 
 =head2 effect_code
@@ -1678,6 +1675,46 @@ sub PDL::effect_code_w {
   return wantarray? ($var_e, $map_ref) : $var_e;
 }
 
+=head2 interaction_code
+
+Returns the coded interaction term for effect-coded variables.
+
+=for usage
+
+    perldl> $a = sequence(6) > 2      
+    perldl> p $a = $a->effect_code
+    [
+     [ 1  1  1 -1 -1 -1]
+    ]
+    
+    perldl> $b = pdl( qw( 0 1 2 0 1 2 ) )            
+    perldl> p $b = $b->effect_code
+    [
+     [ 1  0 -1  1  0 -1]
+     [ 0  1 -1  0  1 -1]
+    ]
+    
+    perldl> p $ab = interaction_code( $a, $b )
+    [
+     [ 1  0 -1 -1 -0  1]
+     [ 0  1 -1 -0 -1  1]
+    ]
+
+=cut
+
+*interaction_code = \&PDL::interaction_code;
+sub PDL::interaction_code {
+  my @vars = @_;
+
+  my $i = ones( $vars[0]->dim(0), 1 );
+  for (@vars) {
+    $i = $i * $_->dummy(1);
+    $i = $i->clump(1,2);
+  }
+
+  return $i;
+}
+
 =head2 ols
 
 =for ref
@@ -1691,6 +1728,7 @@ IVs ($x) should be pdl dims $y->nelem or $y->nelem x n_iv. Do not supply the con
 Default options (case insensitive): 
 
     CONST  => 1,
+    PLOT   => 1,   # see plot_residuals() for plot options
 
 =for usage
 
@@ -1736,7 +1774,10 @@ Usage:
 sub PDL::ols {
     # y [n], ivs [n x attr] pdl
   my ($y, $ivs, $opt) = @_;
-  my %opt = ( CONST => 1 );
+  my %opt = (
+    CONST => 1,
+    PLOT  => 1,
+  );
   $opt and $opt{uc $_} = $opt->{$_} for (keys %$opt);
 
   $y = $y->squeeze;
@@ -1770,14 +1811,17 @@ sub PDL::ols {
   my $coeff = PDL::squeeze( $C x $Y );
      $coeff *= $ymean;        # Un-normalise
 
+  my %ret;
+
+    # ***$coeff x $ivs looks nice but produces nan on successive tries***
+  $ret{y_pred} = sumover( $coeff * $ivs->transpose );
+
+  $opt{PLOT} and $y->plot_residuals( $ret{y_pred}, \%opt );
+
   return $coeff
     unless wantarray;
 
-  my %ret;
-
   $ret{b} = $coeff;
-    # ***$coeff x $ivs looks nice but produces nan on successive tries***
-  $ret{y_pred} = sumover( $coeff * $ivs->transpose );
   $ret{ss_total} = $opt{CONST}? $y->ss : sum( $y ** 2 );
   $ret{ss_residual} = $y->sse( $ret{y_pred} );
   $ret{ss_model} = $ret{ss_total} - $ret{ss_residual};
@@ -1802,7 +1846,7 @@ sub PDL::ols {
       my $G = $ivs->dice_axis(1, \@G);
       $opt{CONST} and
         $G = $G->glue( 1, ones($ivs->dim(0)) );
-      my $b_G = $ivs( ,$k)->ols( $G, {CONST=>0} );
+      my $b_G = $ivs( ,$k)->ols( $G, {CONST=>0,PLOT=>0} );
 
       my $ss_res_k = $ivs( ,$k)->squeeze->sse( sumover($b_G * $G->transpose) );
 
@@ -1823,6 +1867,134 @@ sub PDL::ols {
 
   return %ret;
 }
+
+
+=head2 ols_rptd
+
+=for ref
+
+Repeated measures linear regression (Lorch & Myers, 1990; Van den Noortgate & Onghena, 2006). Handles purely within-subject design for now. See t/stats_ols_rptd.t for an example using the Lorch and Myers data.
+
+=for usage
+
+Usage:
+
+    # This is the example from Lorch and Myers (1990),
+    # a study on how characteristics of sentences affected reading time
+    # Three within-subject IVs:
+    # SP -- serial position of sentence
+    # WORDS -- number of words in sentence
+    # NEW -- number of new arguments in sentence
+
+    # $subj can be 1D pdl or @ ref and must be the first argument
+    # IV can be 1D @ ref or pdl
+    # 1D @ ref is effect coded internally into pdl
+    # pdl is left as is
+
+    my %r = $rt->ols_rptd( $subj, $sp, $words, $new );
+
+    print "$_\t$r{$_}\n" for (sort keys %r);
+
+    (ss_residual)   58.3754646504336
+    (ss_subject)    51.8590337714286
+    (ss_total)  405.188241771429
+    #      SP        WORDS      NEW
+    F   [  7.208473  61.354153  1.0243311]
+    F_p [0.025006181 2.619081e-05 0.33792837]
+    coeff   [0.33337285 0.45858933 0.15162986]
+    df  [1 1 1]
+    df_err  [9 9 9]
+    ms  [ 18.450705  73.813294 0.57026483]
+    ms_err  [ 2.5595857  1.2030692 0.55671923]
+    ss  [ 18.450705  73.813294 0.57026483]
+    ss_err  [ 23.036272  10.827623  5.0104731]
+
+
+=cut
+
+*ols_rptd = \&PDL::ols_rptd;
+sub PDL::ols_rptd {
+  my ($y, $subj, @ivs_raw) = @_;
+
+  $y = $y->squeeze;
+  $y->getndims > 1 and
+    croak "ols_rptd does not support threading";
+
+  my @ivs = map {  (ref $_ eq 'PDL' and $_->ndims > 1)?  $_
+                  : ref $_ eq 'PDL' ?                    $_->dummy(1)
+                  :                   scalar effect_code($_)
+                  ;
+                } @ivs_raw;
+
+  my %r;
+
+  $r{'(ss_total)'} = $y->ss;
+
+  # STEP 1: subj
+
+  my $s = effect_code $subj;     # gives same results as dummy_code
+  my $b_s = $y->ols_t($s);
+  my $pred = sumover($b_s(0:-2) * $s->transpose) + $b_s(-1);
+  $r{'(ss_subject)'} = $r{'(ss_total)'} - $y->sse( $pred );
+
+  # STEP 2: add predictor variables
+
+  my $iv_p = $s->glue(1, @ivs);
+  my $b_p = $y->ols_t($iv_p);
+
+    # only care about coeff for predictor vars. no subj or const coeff
+  $r{coeff} = $b_p(-(@ivs+1) : -2)->sever;
+
+    # get total sse for this step
+  $pred = sumover($b_p(0:-2) * $iv_p->transpose) + $b_p(-1);
+  my $ss_pe  = $y->sse( $pred );
+
+    # get predictor ss by successively reducing the model
+  $r{ss} = zeroes scalar(@ivs);
+  for my $i (0 .. $#ivs) {
+    my @i_rest = grep { $_ != $i } 0 .. $#ivs;
+    my $iv = $s->glue(1, @ivs[ @i_rest ]);
+    my $b  = $y->ols_t($iv);
+    $pred = sumover($b(0:-2) * $iv->transpose) + $b(-1);
+    $r{ss}->($i) .= $y->sse($pred) - $ss_pe;
+  }
+
+  # STEP 3: get precitor x subj interaction as error term
+
+  my $iv_e = PDL::glue 1, map { interaction_code( $s, $_ ) } @ivs;
+
+    # get total sse for this step. full model now.
+  my $b_f = $y->ols_t( $iv_p->glue(1,$iv_e) );
+  $pred = sumover($b_f(0:-2) * $iv_p->glue(1,$iv_e)->transpose) + $b_f(-1);
+  $r{'(ss_residual)'}  = $y->sse( $pred );
+
+    # get predictor x subj ss by successively reducing the error term
+  $r{ss_err} = zeroes scalar(@ivs);
+  for my $i (0 .. $#ivs) {
+    my @i_rest = grep { $_ != $i } 0 .. $#ivs;
+    my $e_rest = PDL::glue 1, map { interaction_code( $s, $_ ) } @ivs[@i_rest];
+    my $iv = $iv_p->glue(1, $e_rest);
+    my $b  = $y->ols_t($iv);
+    my $pred = sumover($b(0:-2) * $iv->transpose) + $b(-1);
+    $r{ss_err}->($i) .= $y->sse($pred) - $r{'(ss_residual)'};
+  }
+
+  # Finally, get MS, F, etc
+
+  $r{df} = pdl( map { $_->squeeze->ndims } @ivs );
+  $r{ms} = $r{ss} / $r{df};
+
+  $r{df_err} = $s->dim(1) * $r{df};
+  $r{ms_err} = $r{ss_err} / $r{df_err};
+
+  $r{F} = $r{ms} / $r{ms_err};
+
+  $r{F_p} = 1 - $r{F}->gsl_cdf_fdist_P( $r{df}, $r{df_err} )
+    if $CDF;
+
+  return %r;
+}
+
 
 =head2 logistic
 
@@ -2045,7 +2217,7 @@ Usage:
 =cut
 
 *pca = \&PDL::pca;
-sub PDL::pca {
+sub PDL::pca { 
   my ($self, $opt) = @_;
 
   my %opt = (
@@ -2066,9 +2238,9 @@ sub PDL::pca {
     $score = $score->inplace->transpose->sever;
   }
 
-  my $ind_sorted = pdl reverse list qsorti $value;
-  $score = $score->inplace->dice_axis(1, $ind_sorted)->sever;
-  $value = $value->inplace->dice($ind_sorted)->sever;
+  my $ind_sorted = $value->qsorti->(-1:0);
+  $score = $score->inplace->dice_axis(1, $ind_sorted)->sever;  # not threadable yet
+  $value = $value->dummy(1)->index($ind_sorted)->sever;        # allows threading
 
     # var x axis
   my $loading = $score * sqrt( $value->transpose );
@@ -2143,9 +2315,7 @@ sub PDL::pca_sorti {
     # sort within comp
   my $ic = $icomp($ivar_sort)->iv_cluster;
   for my $comp (0 .. $ic->dim(1)-1) {
-    my $i = $self(which($ic( ,$comp)), $comp)->qsorti;
-      # descending sort by size
-    $i = pdl(reverse list $i);
+    my $i = $self(which($ic( ,$comp)), $comp)->qsorti->(-1:0);
     $ivar_sort(which $ic( ,$comp))
       .= $ivar_sort(which $ic( ,$comp))->($i)->sever;
   }
@@ -2222,7 +2392,7 @@ sub PDL::plot_means {
   $self = $self->reshape(@dims)->sever;
   $se = $se->reshape(@dims)->sever
     if defined $se;
-  @iD = reverse list qsorti pdl @dims
+  @iD = reverse sort { $a<=>$b } @dims
     if $opt{AUTO};
 
     # $iD[0] on x axis
@@ -2282,6 +2452,72 @@ sub PDL::plot_means {
   return;
 }
 
+=head2 plot_residuals
+
+Plots residuals against predicted values.
+
+=for usage
+
+Usage:
+
+    $y->plot_residuals( $y_pred, { dev=>'/png' } );
+
+=for options
+
+Default options (case insensitive):
+
+     # see PDL::Graphics::PGPLOT::Window for more info
+    WIN   => undef,  # pgwin object. not closed here if passed
+                     # allows comparing multiple lines in same plot
+                     # set env before passing WIN
+    DEV   => '/xs',  # open and close dev for plotting if no WIN
+    SIZE  => 480,    # plot size in pixels
+    COLOR => 1,
+
+=cut
+
+*plot_residuals = \&PDL::plot_residuals;
+sub PDL::plot_residuals {
+  if (!$PGPLOT) {
+    carp "No PDL::Graphics::PGPLOT, no plot :(";
+    return;
+  }
+  my $opt = pop @_
+    if ref $_[-1] eq 'HASH';
+  my ($y, $y_pred) = @_;
+  my %opt = (
+     # see PDL::Graphics::PGPLOT::Window for next options
+    WIN   => undef,  # pgwin object. not closed here if passed
+                     # allows comparing multiple lines in same plot
+                     # set env before passing WIN
+    DEV   => '/xs',  # open and close dev for plotting if no WIN
+    SIZE  => 480,    # plot size in pixels
+    COLOR => 1,
+  );
+  $opt and $opt{uc $_} = $opt->{$_} for (keys %$opt);
+
+  my $residuals = $y - $y_pred;
+
+  my $win = $opt{WIN};
+
+  if (!$win) {
+   $win = pgwin(DEV=>$opt{DEV}, SIZE=>[$opt{SIZE}, $opt{SIZE}], UNIT=>3);
+   $win->env( $y_pred->minmax, $residuals->minmax,
+     {XTITLE=>'predicted value', YTITLE=>'residuals',
+      AXIS=>['BCNT', 'BCNST'], Border=>1,} );
+  }
+
+  $win->points($y_pred, $residuals, { COLOR=>$opt{COLOR} });
+  # add 0-line
+  $win->line(pdl($y_pred->minmax), pdl(0,0), { COLOR=>$opt{COLOR} } );
+
+  $win->close
+    unless $opt{WIN};
+
+  return;
+}
+
+ 
 =head2 plot_scree
 
 Scree plot. Plots proportion of variance accounted for by PCA components.
@@ -2352,6 +2588,7 @@ sub PDL::plot_scree {
      {XTitle=>'Compoment', YTitle=>'Proportion of Variance Accounted for',
      AXIS=>['BCNT', 'BCNST'], Border=>1, });
   }
+
   $win->points(sequence($ncomp), $self(0:$ncomp-1, ),
         {CHARSIZE=>2, COLOR=>$opt{COLOR}, PLOTLINE=>1} );
   $win->line( pdl($opt{CUT}-.5, $opt{CUT}-.5), pdl(-.05, $self->max+.05),
@@ -2374,11 +2611,15 @@ Cohen, J., Cohen, P., West, S.G., & Aiken, L.S. (2003). Applied Multiple Regress
 
 Hosmer, D.W., & Lemeshow, S. (2000). Applied Logistic Regression (2nd ed.). New York, NY: Wiley-Interscience. 
 
+Lorch, R.F., & Myers, J.L. (1990). Regression analyses of repeated measures data in cognitive research. Journal of Experimental Psychology: Learning, Memory, & Cognition, 16, 149-157.
+
 Osgood C.E., Suci, G.J., & Tannenbaum, P.H. (1957). The Measurement of Meaning. Champaign, IL: University of Illinois Press.
 
 Rutherford, A. (2001). Introducing Anova and Ancova: A GLM Approach (1st ed.). Thousand Oaks, CA: Sage Publications.
 
 The GLM procedure: unbalanced ANOVA for two-way design with interaction. (2008). SAS/STAT(R) 9.2 User's Guide. Retrieved June 18, 2009 from http://support.sas.com/
+
+Van den Noortgatea, W., & Onghenaa, P. (2006). Analysing repeated measures data in cognitive research: A comment on regression coefficient analyses. European Journal of Cognitive Psychology, 18, 937-952.
 
 =head1 AUTHOR
 

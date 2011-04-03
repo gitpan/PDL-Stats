@@ -5,7 +5,7 @@ use warnings;
 use Test::More;
 
 BEGIN {
-    plan tests => 40;
+    plan tests => 41;
       # 1-2
     use_ok( 'PDL::Stats::Basic' );
     use_ok( 'PDL::Stats::GLM' );
@@ -81,7 +81,7 @@ is( tapprox( t_ols(), 0 ), 1 );
 sub t_ols {
   my $a = sequence 5;
   my $b = pdl(0,0,0,1,1);
-  my %m = $a->ols($b);
+  my %m = $a->ols($b, {plot=>0});
   my %a = (
     F    => 9,
     F_df => pdl(1,3),
@@ -354,7 +354,7 @@ sub t_anova_rptd_mixed {
 
 is( tapprox( t_anova_rptd_mixed_4w(), 0 ), 1, 'anova_rptd_mixed_4w' );
 sub t_anova_rptd_mixed_4w {
-  my ($data, $idv, $subj) = rtable 't/anova_mixed_4w', {v=>0};
+  my ($data, $idv, $subj) = rtable \*DATA, {v=>0};
   my ($age, $aa, $beer, $wings, $dv) = $data->dog;
   my %m = $dv->anova_rptd( $subj, $age, $aa, $beer, $wings, { ivnm=>[qw(age aa beer wings)], btwn=>[0,1], v=>0, plot=>0 } );
 #  print STDERR "$_\t$m{$_}\n" for (sort keys %m);
@@ -376,3 +376,70 @@ sub t_anova_rptd_mixed_4w {
         + ($m{'| age ~ aa ~ beer ~ wings | F'} - $ans_4w_F)
   ;
 }
+
+{
+  # 41
+  my $a = effect_code( sequence(12) > 5 );
+  my $b = effect_code([ map {(0, 1)} (1..6) ]);
+  my $c = effect_code([ map {(0,0,1,1,2,2)} (1..2) ]);
+
+  my $ans = pdl [
+   [qw( 1 -1  0 -0 -1  1 -1  1 -0  0  1 -1 )],
+   [qw( 0 -0  1 -1 -1  1 -0  0 -1  1  1 -1 )]
+  ];
+  my $inter = interaction_code( $a, $b, $c);
+
+  is(sum(abs($inter - $ans)), 0, 'interaction_code');
+}
+
+
+__DATA__
+subj	age	Apple-android	beer	wings	recall
+1	0	0	0	0	5
+1	0	0	0	1	4
+1	0	0	1	0	8
+1	0	0	1	1	3
+2	0	0	0	0	3
+2	0	0	0	1	7
+2	0	0	1	0	9
+2	0	0	1	1	3
+3	0	0	0	0	2
+3	0	0	0	1	9
+3	0	0	1	0	1
+3	0	0	1	1	0
+1	0	1	0	0	4
+1	0	1	0	1	6
+1	0	1	1	0	9
+1	0	1	1	1	6
+2	0	1	0	0	9
+2	0	1	0	1	7
+2	0	1	1	0	5
+2	0	1	1	1	8
+3	0	1	0	0	6
+3	0	1	0	1	6
+3	0	1	1	0	3
+3	0	1	1	1	4
+1	1	0	0	0	8
+1	1	0	0	1	8
+1	1	0	1	0	10
+1	1	0	1	1	7
+2	1	0	0	0	10
+2	1	0	0	1	1
+2	1	0	1	0	8
+2	1	0	1	1	11
+3	1	0	0	0	4
+3	1	0	0	1	10
+3	1	0	1	0	5
+3	1	0	1	1	2
+1	1	1	0	0	10
+1	1	1	0	1	6
+1	1	1	1	0	10
+1	1	1	1	1	6
+2	1	1	0	0	2
+2	1	1	0	1	5
+2	1	1	1	0	9
+2	1	1	1	1	4
+3	1	1	0	0	3
+3	1	1	0	1	5
+3	1	1	1	0	9
+3	1	1	1	1	2

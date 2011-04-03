@@ -5,7 +5,7 @@ use warnings;
 use Test::More;
 
 BEGIN {
-    plan tests => 47;
+    plan tests => 48;
 }
 
 use PDL::LiteF;
@@ -100,9 +100,9 @@ is( tapprox( $df, 3 ), 1 );
 
   # 43-44
 {
-  my ($data, $idv, $ido) = rtable('t/t_try', {V=>0});
-  is( tapprox( sum(pdl($data->dims) - pdl(14, 5)), 0 ), 1 );
-  is( tapprox( $data->sum / $data->nbad, 1.70731707317073 ), 1 );
+  my ($data, $idv, $ido) = rtable(\*DATA, {V=>0});
+  is( tapprox( sum(pdl($data->dims) - pdl(14, 5)), 0 ), 1, 'rtable data dim' );
+  is( tapprox( $data->sum / $data->nbad, 1.70731707317073 ), 1, 'rtable bad elem' );
 }
 
   # 45-46
@@ -121,4 +121,32 @@ is( tapprox( $df, 3 ), 1 );
   is( $a->stdv->nbad, 1 );
 }
 
+  # 48
+SKIP: {
+  eval { require PDL::GSL::CDF; };
+  skip 'no PDL::GSL::CDF', 1 if $@;
+  my $x = pdl(2, 8);
+  my $n = pdl(10, 20);
+  my $p = .5;
 
+  my $a = pdl qw[ 0.9453125 0.74827766];
+
+  is (tapprox( sum(abs(binomial_test( $x,$n,$p ) - $a)) ,0), 1, 'binomial_test');
+}
+
+__DATA__
+999	90	91	92	93	94	
+70	5	7	-999	-999	-999	
+711	trying
+71	-999	3	-999	-999	0	
+72	2	7	-999	-999	-999	
+73	-999	0	-999	-999	2	
+74	5	-999	1	0	-999	
+75	-999	0	-999	-999	0	
+76	9	8	1	5	-999	
+77	4	-999	-999	-999	-999	
+78	-999	0	-999	-999	0	
+79	-999	3	-999	-999	0	
+80	-999	0	-999	-999	2	
+81	5	-999	1	0	-999	
+82	-999	0	-999	-999	0	
