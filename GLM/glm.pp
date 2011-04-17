@@ -1,6 +1,6 @@
 #!/usr/bin/perl
 
-pp_add_exported('', 'ols_t', 'anova', 'anova_rptd', 'dummy_code', 'effect_code', 'effect_code_w', 'interaction_code', 'ols', 'ols_rptd', 'r2_change', 'logistic', 'pca', 'pca_sorti', 'plot_means', 'plot_residuals', 'plot_scree');
+pp_add_exported('', 'ols_t', 'anova', 'anova_rptd', 'dummy_code', 'effect_code', 'effect_code_w', 'interaction_code', 'ols', 'ols_rptd', 'r2_change', 'logistic', 'pca', 'pca_sorti', 'plot_means', 'plot_residuals', 'plot_screes');
 
 pp_addpm({At=>'Top'}, <<'EOD');
 
@@ -27,6 +27,8 @@ eval {
   PDL::Graphics::PGPLOT::Window->import( 'pgwin' );
 };
 my $PGPLOT = 1 if !$@;
+
+my $DEV = ($^O =~ /win/i)? '/png' : '/xs';
 
 =head1 NAME
 
@@ -2195,24 +2197,50 @@ sub _logistic_no_intercept {
 
 =for ref
 
-Principal component analysis. $data is pdl dim obs x var. Output loading (corr between var and component) and score are pdls dim var x component. value and variance are pdls dim component.
-
-Based on corr instead of cov (bad values are ignored pair-wise. OK when bad values are few but otherwise probably should fill_m etc before pca). Use PDL::Slatec::eigsys() if installed, otherwise use PDL::MatrixOps::eigens_sym(). Added loadings and descending sorted component by $value (ie variance accouted for).
+Principal component analysis. Based on corr instead of cov (bad values are ignored pair-wise. OK when bad values are few but otherwise probably should fill_m etc before pca). Use PDL::Slatec::eigsys() if installed, otherwise use PDL::MatrixOps::eigens_sym().
 
 =for options
 
 Default options (case insensitive):
 
-    PLOT  => 1,       # scree plot for var accounted for
-                      # can set plot_scree options here
+    PLOT  => 1,     # calls plot_screes by default
+                    # can set plot_screes options here
 
 =for usage
 
 Usage:
 
-    my $data   = random 100, 20;       # 100 obs on 20 var
-    my %result = $data->pca;
-    print "$_\t$result{$_}\n" for (keys %result);
+    my $d = qsort random 10, 5;      # 10 obs on 5 variables
+    my %r = $d->pca( \%opt );
+    print "$_\t$r{$_}\n" for (keys %r);
+
+    eigenvalue    # variance accounted for by each component
+    [4.70192 0.199604 0.0471421 0.0372981 0.0140346]
+
+    eigenvector   # dim var x comp. weights for mapping variables to component
+    [
+     [ -0.451251  -0.440696  -0.457628  -0.451491  -0.434618]
+     [ -0.274551   0.582455   0.131494   0.255261  -0.709168]
+     [   0.43282   0.500662  -0.139209  -0.735144 -0.0467834]
+     [  0.693634  -0.428171   0.125114   0.128145  -0.550879]
+     [  0.229202   0.180393  -0.859217     0.4173  0.0503155]
+    ]
+    
+    loadings      # dim var x comp. correlation between variable and component
+    [
+     [ -0.978489  -0.955601  -0.992316   -0.97901  -0.942421]
+     [ -0.122661   0.260224  0.0587476   0.114043  -0.316836]
+     [ 0.0939749   0.108705 -0.0302253  -0.159616 -0.0101577]
+     [   0.13396 -0.0826915  0.0241629  0.0247483   -0.10639]
+     [  0.027153  0.0213708  -0.101789  0.0494365 0.00596076]
+    ]
+    
+    pct_var       # percent variance accounted for by each component
+    [0.940384 0.0399209 0.00942842 0.00745963 0.00280691]
+
+Plot scores along the first two components,
+
+    $d->plot_scores( $r{eigenvector} );
 
 =cut
 
@@ -2225,31 +2253,34 @@ sub PDL::pca {
   );
   $opt and $opt{uc $_} = $opt->{$_} for (keys %$opt);
 
+#  my $var_var = $opt{CORR}? $self->corr_table : $self->cov_table;
   my $var_var = $self->corr_table;
 
     # value is axis pdl and score is var x axis
-  my ($value, $score);
+  my ($eigval, $eigvec);
   if ( $SLATEC ) {
-    ($value, $score) = $var_var->PDL::Slatec::eigsys;
+    ($eigval, $eigvec) = $var_var->PDL::Slatec::eigsys;
   }
   else {
-    ($score, $value) = $var_var->eigens_sym;
+    ($eigvec, $eigval) = $var_var->eigens_sym;
       # compatibility with PDL::Slatec::eigsys
-    $score = $score->inplace->transpose->sever;
+    $eigvec = $eigvec->inplace->transpose->sever;
   }
 
-  my $ind_sorted = $value->qsorti->(-1:0);
-  $score = $score->inplace->dice_axis(1, $ind_sorted)->sever;  # not threadable yet
-  $value = $value->dummy(1)->index($ind_sorted)->sever;        # allows threading
+    # ind is sticky point for threading
+  my $ind_sorted = $eigval->qsorti->(-1:0);
+  $eigvec = $eigvec( ,$ind_sorted)->sever;
+  $eigval = $eigval($ind_sorted)->sever;
 
     # var x axis
-  my $loading = $score * sqrt( $value->transpose );
-  my $var     = $value / $self->dim(1);
+  my $loading = $eigvec * sqrt( $eigval->transpose );
+  my $var     = $eigval / $eigval->sum;
 
-  $var->plot_scree(\%opt)
+  $var->plot_screes(\%opt)
     if $opt{PLOT};
 
-  return ( loading=>$loading, value=>$value, score=>$score, var=>$var ); 
+  return ( eigenvalue=>$eigval, eigenvector=>$eigvec,
+           pct_var=>$var, loadings=>$loading ); 
 }
 
 =head2 pca_sorti
@@ -2276,9 +2307,10 @@ Usage:
 
     perldl> %m = $data->pca
  
-    perldl> ($iv, $ic) = $m{loading}->pca_sorti()
+    perldl> ($iv, $ic) = $m{loadings}->pca_sorti()
 
-    perldl> p "$idv->[$_]\t" . $m{loading}->($_,$ic)->flat . "\n" for (list $iv)
+    perldl> p "$idv->[$_]\t" . $m{loadings}->($_,$ic)->flat . "\n" for (list $iv)
+
              #   COMP0     COMP1    COMP2    COMP3
     HAPPY	[0.860191 0.364911 0.174372 -0.10484]
     GOOD	[0.848694 0.303652 0.198378 -0.115177]
@@ -2340,7 +2372,8 @@ Default options (case insensitive):
                       # allows comparing multiple lines in same plot
                       # set env before passing WIN
     DEV   => '/xs',         # open and close dev for plotting if no WIN
-    SIZE  => 480,           # individual square panel size in pixels
+                            # defaults to '/png' in Windows
+    SIZE  => 640,           # individual square panel size in pixels
     SYMBL => [0, 4, 7, 11], 
 
 =for usage
@@ -2376,8 +2409,8 @@ sub PDL::plot_means {
     DVNM => 'DV',
     AUTO  => 1,             # auto set vars to be on X axis, line, panel
     WIN   => undef,         # PDL::Graphics::PGPLOT::Window object
-    DEV   => '/xs',
-    SIZE  => 480,           # individual square panel size in pixels
+    DEV   => $DEV,
+    SIZE  => 640,           # individual square panel size in pixels
     SYMBL => [0, 4, 7, 11], # ref PDL::Graphics::PGPLOT::Window 
   );
   $opt and $opt{uc $_} = $opt->{$_} for (keys %$opt);
@@ -2471,7 +2504,8 @@ Default options (case insensitive):
                      # allows comparing multiple lines in same plot
                      # set env before passing WIN
     DEV   => '/xs',  # open and close dev for plotting if no WIN
-    SIZE  => 480,    # plot size in pixels
+                     # defaults to '/png' in Windows
+    SIZE  => 640,    # plot size in pixels
     COLOR => 1,
 
 =cut
@@ -2490,8 +2524,8 @@ sub PDL::plot_residuals {
     WIN   => undef,  # pgwin object. not closed here if passed
                      # allows comparing multiple lines in same plot
                      # set env before passing WIN
-    DEV   => '/xs',  # open and close dev for plotting if no WIN
-    SIZE  => 480,    # plot size in pixels
+    DEV   => $DEV ,  # open and close dev for plotting if no WIN
+    SIZE  => 640,    # plot size in pixels
     COLOR => 1,
   );
   $opt and $opt{uc $_} = $opt->{$_} for (keys %$opt);
@@ -2518,7 +2552,80 @@ sub PDL::plot_residuals {
 }
 
  
-=head2 plot_scree
+=head2 plot_scores
+
+Plots standardized original and PCA transformed scores against two components. (Thank you, Bob MacCallum, for the documentation that led to this function.)
+
+=for options
+
+Default options (case insensitive):
+
+  COMP  => [0,1],  # indices to components to plot
+    # see PDL::Graphics::PGPLOT::Window for next options
+  WIN   => undef,  # pgwin object. not closed here if passed
+                   # allows comparing multiple lines in same plot
+                   # set env before passing WIN
+  DEV   => '/xs',  # open and close dev for plotting if no WIN
+                   # defaults to '/png' in Windows
+  SIZE  => 640,    # plot size in pixels
+  COLOR => [1,2],  # color for original and rotated scores
+
+=for usage
+
+Usage:
+
+  my %p = $data->pca();
+  $data->plot_scores( $p{eigenvector}, \%opt );
+
+=cut
+
+*plot_scores = \&PDL::plot_scores;
+sub PDL::plot_scores {
+  if (!$PGPLOT) {
+    carp "No PDL::Graphics::PGPLOT, no plot :(";
+    return;
+  }
+  my $opt = pop @_
+    if ref $_[-1] eq 'HASH';
+  my ($self, $eigvec) = @_;
+  my %opt = (
+    COMP  => [0,1],  # indices to components to plot
+     # see PDL::Graphics::PGPLOT::Window for next options
+    WIN   => undef,  # pgwin object. not closed here if passed
+                     # allows comparing multiple lines in same plot
+                     # set env before passing WIN
+    DEV   => $DEV ,  # open and close dev for plotting if no WIN
+    SIZE  => 640,    # plot size in pixels
+    COLOR => [1,2],  # color for original and transformed scoress
+  );
+  $opt and $opt{uc $_} = $opt->{$_} for (keys %$opt);
+
+  my $i = pdl $opt{COMP};
+  my $z = $self->stddz;
+
+    # transformed normed values
+  my $scores = sumover($eigvec( ,$i) * $z->transpose->dummy(1))->transpose;
+  $z = $z( ,$i)->sever;
+
+  my $win = $opt{WIN};
+  my $max = pdl($z, $scores)->abs->ceil->max;
+  if (!$win) {
+   $win = pgwin(DEV=>$opt{DEV}, SIZE=>[$opt{SIZE}, $opt{SIZE}], UNIT=>3);
+   $win->env(-$max, $max, -$max, $max,
+     {XTitle=>"Compoment $opt{COMP}->[0]", YTitle=>"Component $opt{COMP}->[1]",
+     AXIS=>['ABCNST', 'ABCNST'], Border=>1, });
+  }
+
+  $win->points( $z( ,0;-), $z( ,1;-), { COLOR=>$opt{COLOR}->[0] } );
+  $win->points( $scores( ,0;-), $scores( ,1;-), { COLOR=>$opt{COLOR}->[1] } );
+  $win->legend( ['original', 'transformed'], .2*$max, .8*$max, {color=>[1,2],symbol=>[1,1]} );
+  $win->close
+    unless $opt{WIN};
+  return;
+}
+
+ 
+=head2 plot_screes
 
 Scree plot. Plots proportion of variance accounted for by PCA components.
 
@@ -2534,7 +2641,8 @@ Default options (case insensitive):
                    # allows comparing multiple lines in same plot
                    # set env before passing WIN
   DEV   => '/xs',  # open and close dev for plotting if no WIN
-  SIZE  => 480,    # plot size in pixels
+                   # defaults to '/png' in Windows
+  SIZE  => 640,    # plot size in pixels
   COLOR => 1,
 
 =for usage
@@ -2543,16 +2651,17 @@ Usage:
 
   # variance should be in descending order
  
-  $pca{var}->plot_scree( {ncomp=>16} );
+  $pca{var}->plot_screes( {ncomp=>16} );
 
 Or, because NCOMP is used so often, it is allowed a shortcut,
 
-  $pca{var}->plot_scree( 16 );
+  $pca{var}->plot_screes( 16 );
 
 =cut
 
-*plot_scree = \&PDL::plot_scree;
-sub PDL::plot_scree {
+*plot_scree = \&PDL::plot_screes;      # here for now for compatibility
+*plot_screes = \&PDL::plot_screes;
+sub PDL::plot_screes {
   if (!$PGPLOT) {
     carp "No PDL::Graphics::PGPLOT, no plot :(";
     return;
@@ -2568,8 +2677,8 @@ sub PDL::plot_scree {
     WIN   => undef,  # pgwin object. not closed here if passed
                      # allows comparing multiple lines in same plot
                      # set env before passing WIN
-    DEV   => '/xs',  # open and close dev for plotting if no WIN
-    SIZE  => 480,    # plot size in pixels
+    DEV   => $DEV ,  # open and close dev for plotting if no WIN
+    SIZE  => 640,    # plot size in pixels
     COLOR => 1,
   );
   $opt and $opt{uc $_} = $opt->{$_} for (keys %$opt);
@@ -2584,7 +2693,7 @@ sub PDL::plot_scree {
 
   if (!$win) {
    $win = pgwin(DEV=>$opt{DEV}, SIZE=>[$opt{SIZE}, $opt{SIZE}], UNIT=>3);
-   $win->env(0, $ncomp-1, 0, $self->max,
+   $win->env(0, $ncomp-1, 0, 1,
      {XTitle=>'Compoment', YTitle=>'Proportion of Variance Accounted for',
      AXIS=>['BCNT', 'BCNST'], Border=>1, });
   }
@@ -2616,6 +2725,8 @@ Lorch, R.F., & Myers, J.L. (1990). Regression analyses of repeated measures data
 Osgood C.E., Suci, G.J., & Tannenbaum, P.H. (1957). The Measurement of Meaning. Champaign, IL: University of Illinois Press.
 
 Rutherford, A. (2001). Introducing Anova and Ancova: A GLM Approach (1st ed.). Thousand Oaks, CA: Sage Publications.
+
+Shlens, J. (2009). A Tutorial on Principal Component Analysis. Retrieved April 10, 2011 from http://citeseerx.ist.psu.edu/
 
 The GLM procedure: unbalanced ANOVA for two-way design with interaction. (2008). SAS/STAT(R) 9.2 User's Guide. Retrieved June 18, 2009 from http://support.sas.com/
 
