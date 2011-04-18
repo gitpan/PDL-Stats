@@ -153,7 +153,7 @@ pct_var     => pdl( qw(0.928895 0.0615791 0.00952624) ),
   );
 
   for (keys %a) {
-    is(tapprox(sum(abs($a{$_}-$p{$_})),0, 1e-5), 1, $_);
+    is(tapprox(sum(abs($a{$_}-$p{$_})), 0, 1e-4), 1, $_);
   }
 }
 
