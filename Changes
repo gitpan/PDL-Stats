@@ -1,5 +1,8 @@
 Revision history for PDL-Stats
 
+0.5.3   04/18/2011
+        stats_glm.t pca() test SLATEC vs. MatrixOps precision and sign fix.
+
 0.5.2   04/17/2011
         stats_glm.t pca() test precision fix.
 

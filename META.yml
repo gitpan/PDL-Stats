@@ -1,6 +1,6 @@
 --- #YAML:1.0
 name:               PDL-Stats
-version:            0.5.2
+version:            0.5.3
 abstract:           a collection of statistics modules in Perl Data Language, with a quick-start guide for non-PDL people.
 author:
     - Maggie J. Xiong  <maggiexyz users.sourceforge.net>
@@ -17,7 +17,7 @@ no_index:
     directory:
         - t
         - inc
-generated_by:       ExtUtils::MakeMaker version 6.54
+generated_by:       ExtUtils::MakeMaker version 6.55_02
 meta-spec:
     url:      http://module-build.sourceforge.net/META-spec-v1.4.html
     version:  1.4
