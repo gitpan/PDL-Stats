@@ -36,7 +36,7 @@ my $DEV = ($^O =~ /win/i)? '/png' : '/xs';
 
 =head1 NAME
 
-PDL::Stats::GLM -- general linear modeling methods and logistic regression
+PDL::Stats::GLM -- general and generalized linear modeling methods such as ANOVA, linear regression, PCA, and logistic regression.
 
 =head1 DESCRIPTION
 
@@ -52,19 +52,14 @@ P-values, where appropriate, are provided if PDL::GSL::CDF is installed.
 
     # do a multiple linear regression and plot the residuals
 
-    my $y  = random 10;
+    my $y = pdl( 8, 7, 7, 0, 2, 5, 0 );
 
-    my $x1 = sequence 10;
-    my $x2 = $x1 ** 2;
-    my $iv = cat $x1, $x2;
+    my $x = pdl( [ 0, 1, 2, 3, 4, 5, 6 ],        # linear component
+                 [ 0, 1, 4, 9, 16, 25, 36 ] );   # quadratic component
 
-    my %m  = $y->ols( $iv );
+    my %m  = $y->ols( $x, {plot=>1} );
+
     print "$_\t$m{$_}\n" for (sort keys %m);
-
-    use PDL::Graphics::PGPLOT::Window;
-
-    my $win = pgwin( 'xs' );
-    $win->points( $y - $m{y_pred} );
 
 =cut
 
