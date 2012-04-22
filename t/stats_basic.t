@@ -5,7 +5,7 @@ use warnings;
 use Test::More;
 
 BEGIN {
-    plan tests => 50;
+    plan tests => 55;
 }
 
 use PDL::LiteF;
@@ -115,15 +115,14 @@ is( tapprox( $df, 3 ), 1 );
 
 {
   my $a = random 10, 3;
-  is( tapprox( sum($a->corr_table - $a->corr($a->dummy(1))), 0 ), 1 );
+  is( tapprox( sum(abs($a->corr_table - $a->corr($a->dummy(1)))), 0 ), 1 );
 
   $a->setbadat(4,0);
-  is( tapprox( sum($a->corr_table - $a->corr($a->dummy(1))), 0 ), 1 );
+  is( tapprox( sum(abs($a->corr_table - $a->corr($a->dummy(1)))), 0 ), 1 );
 }
   # 49
 {
-  my $a = sequence 5, 2;
-  $a( ,1) .= 0;
+  my $a = pdl([0,1,2,3,4], [0,0,0,0,0]);
   $a = $a->setvaltobad(0);
   is( $a->stdv->nbad, 1 );
 }
@@ -140,6 +139,44 @@ SKIP: {
 
   is (tapprox( sum(abs(binomial_test( $x,$n,$p ) - $a)) ,0), 1, 'binomial_test');
 }
+
+    # 51-52
+{
+    my $a = sequence 10, 2;
+    my $factor = sequence(10) > 4;
+    my $ans = pdl( [[0..4], [10..14]], [[5..9], [15..19]] );
+
+    my ($a_, $l) = $a->group_by($factor);
+    is( tapprox( sum(abs($a_ - $ans)), 0 ), 1, 'group_by single factor equal n' );
+    is_deeply( $l, [0, 1], 'group_by single factor label');
+
+    $a = sequence 10,2;
+    $factor = qsort sequence(10) % 3;
+    $ans = pdl( [1.5, 11.5], [5, 15], [8, 18] );
+
+    is( tapprox( sum(abs($a->group_by($factor)->average - $ans)), 0 ), 1, 'group_by single factor unequal n' );
+
+    $a = sequence 10;
+    my @factors = ( [qw( a a a a b b b b b b )], [qw(0 1 0 1 0 1 0 1 0 1)] );
+    $ans = pdl(
+[
+ [0,2,-1],
+ [1,3,-1],
+],
+[
+ [4,6,8],
+ [5,7,9],
+]
+    );
+    $ans->badflag(1);
+    $ans = $ans->setvaltobad(-1);
+
+    ($a_, $l) = $a->group_by( @factors );
+    is(tapprox(sum(abs($a_ - $ans)), 0), 1, 'group_by multiple factors') or diag($a_, $ans);
+    is_deeply($l, [[qw(a_0 a_1)], [qw( b_0 b_1 )]], 'group_by multiple factors label');
+}
+
+
 
 __DATA__
 999	90	91	92	93	94	

@@ -32,8 +32,7 @@ sub t_iv_cluster {
 
 is(tapprox( t_assign(), 0 ), 1);
 sub t_assign {
-  my $centroid = ones 2, 3;
-  $centroid(0,) .= 0;
+  my $centroid = pdl( [0,1], [0,1], [0,1] );
   my $a = sequence 4, 3;
   $a %= 2;
   my $c = $a->assign($centroid);
@@ -53,8 +52,7 @@ sub t_centroid {
 
 is(tapprox( t_assign_bad(), 0 ), 1);
 sub t_assign_bad {
-  my $centroid = ones 2, 3;
-  $centroid(0,) .= 0;
+  my $centroid = pdl( [0,1], [0,1], [0,1] );
   my $a = sequence 5, 3;
   $a->setbadat(4,0);
   $a->setbadat(4,2);
@@ -72,15 +70,15 @@ sub t_centroid_bad {
   my $cluster = pdl(byte, [1,0,1,0,0], [0,1,0,1,1]);
   my ($m, $ss) = $a->centroid($cluster);
   my $m_a = pdl([1,2], [6,7.6666667], [11,12]);
-  my $ss_a = ones(2,3);
-  $ss_a(1,1) .= 1.5555556;
+  my $ss_a = pdl([1,1], [1,1.5555556], [1,1]);
   return sum( $m - $m_a + ( $ss - $ss_a ) );
 }
 
 is(tapprox( t_kmeans(), 0 ), 1);
 sub t_kmeans {
   my $data = sequence 7, 3;
-  $data(1, ) .= 0;
+  my $ind  = $data(1, )->flat;    # only works because $data is sequence
+  $data = lvalue_assign_detour($data, $ind, 0);
   my %m = $data->kmeans({NCLUS=>2, NSEED=>6, NTRY=>10, V=>0});
   return sum( $m{centroid}->sumover - pdl qw(3.3333333  10.333333  17.333333) );
 }
@@ -88,9 +86,12 @@ sub t_kmeans {
 t_kmeans_4d();
 sub t_kmeans_4d {
   my $data = sequence 7, 3, 2, 2;
-  $data(1, ) .= 0;
-  $data(0,1,0, ) .= 0;
-  $data->where($data == 42) .= 0;
+  # construct ind from sequence, then call lvalue_assign_detour
+  my $ind = sequence($data->dims)->(1, )->flat;
+  $data = lvalue_assign_detour($data, $ind, 0);
+  $ind = sequence($data->dims)->(0,1,0, )->flat;
+  $data = lvalue_assign_detour($data, $ind, 0);
+  $data = lvalue_assign_detour($data, which($data == 42), 0);
   my %m = $data->kmeans( {nclus=>[2,1,1], ntry=>10, v=>0} );
 #  print "$_\t$m{$_}\n" for (sort keys %m);
 
@@ -120,9 +121,12 @@ sub t_kmeans_4d {
 t_kmeans_4d_seed();
 sub t_kmeans_4d_seed {
   my $data = sequence 7, 3, 2, 2;
-  $data(1, ) .= 0;
-  $data(0,1,0, ) .= 0;
-  $data->where($data == 42) .= 0;
+  # construct ind from sequence, then call lvalue_assign_detour
+  my $ind = sequence($data->dims)->(1, )->flat;
+  $data = lvalue_assign_detour($data, $ind, 0);
+  $ind = sequence($data->dims)->(0,1,0, );
+  $data = lvalue_assign_detour($data, $ind, 0);
+  $data = lvalue_assign_detour($data, which($data == 42), 0);
 
     # centroid intentially has one less dim than data
   my $centroid = pdl(
@@ -176,8 +180,10 @@ sub t_kmeans_bad {
 t_kmeans_3d_bad();
 sub t_kmeans_3d_bad {
   my $data = sequence 7, 3, 2;
-  $data(0:1, ,0) .= 0;
-  $data(4:6, ,1) .= 1;
+  my $ind = sequence($data->dims)->(0:1, ,0)->flat;
+  $data = lvalue_assign_detour($data, $ind, 0);
+  $ind = sequence($data->dims)->(4:6, ,1)->flat;
+  $data = lvalue_assign_detour($data, $ind, 1);
   $data->setbadat(3,0,0);
   my %m = $data->kmeans( {nclus=>[2,1], ntry=>10, v=>0} );
 #  print "$_\t$m{$_}\n" for (sort keys %m);
@@ -231,4 +237,16 @@ sub t_pca_cluster {
   my $c = cat $c0, $c1;
   my $ans = pdl( [0,1,0,1], [-1,1,1,0] );
   is( abs($c->which_cluster - $ans)->sum, 0, 'which_cluster');
+}
+
+
+sub lvalue_assign_detour {
+    my ($pdl, $index, $new_value) = @_;
+
+    my @arr = list $pdl;
+    my @ind = ref($index)? list($index) : $index; 
+    $arr[$_] = $new_value
+        for (@ind);
+
+    return pdl(\@arr)->reshape($pdl->dims)->sever;
 }

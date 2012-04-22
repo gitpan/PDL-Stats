@@ -1,23 +1,23 @@
---- #YAML:1.0
-name:               PDL-Stats
-version:            0.5.5
-abstract:           a collection of statistics modules in Perl Data Language, with a quick-start guide for non-PDL people.
+---
+abstract: 'a collection of statistics modules in Perl Data Language, with a quick-start guide for non-PDL people.'
 author:
-    - Maggie J. Xiong  <maggiexyz users.sourceforge.net>
-license:            perl
-distribution_type:  module
-configure_requires:
-    ExtUtils::MakeMaker:  0
+  - 'Maggie J. Xiong  <maggiexyz users.sourceforge.net>'
 build_requires:
-    ExtUtils::MakeMaker:  0
-requires:
-    PDL:         2.4.4
-    Test::More:  0
-no_index:
-    directory:
-        - t
-        - inc
-generated_by:       ExtUtils::MakeMaker version 6.54
+  ExtUtils::MakeMaker: 0
+configure_requires:
+  ExtUtils::MakeMaker: 0
+dynamic_config: 1
+generated_by: 'ExtUtils::MakeMaker version 6.62, CPAN::Meta::Converter version 2.112150'
+license: perl
 meta-spec:
-    url:      http://module-build.sourceforge.net/META-spec-v1.4.html
-    version:  1.4
+  url: http://module-build.sourceforge.net/META-spec-v1.4.html
+  version: 1.4
+name: PDL-Stats
+no_index:
+  directory:
+    - t
+    - inc
+requires:
+  PDL: v2.4.4
+  Test::More: 0
+version: v0.6.0

@@ -1,6 +1,6 @@
 #!/usr/bin/perl
 
-pp_add_exported('', 'binomial_test', 'rtable', 'get_data', 'which_id', 
+pp_add_exported('', 'binomial_test', 'rtable', 'which_id', 
 );
 
 pp_addpm({At=>'Top'}, <<'EOD');
@@ -1291,7 +1291,7 @@ sub PDL::binomial_test {
 
 =for ref
 
-Replaces the old method B<get_data>. Reads either file or file handle*. Returns observation x variable pdl and var and obs ids if specified. Ids in perl @ ref to allow for non-numeric ids. Other non-numeric entries are treated as missing, which are filled with $opt{MISSN} then set to BAD*. Can specify num of data rows to read from top but not arbitrary range.
+Reads either file or file handle*. Returns observation x variable pdl and var and obs ids if specified. Ids in perl @ ref to allow for non-numeric ids. Other non-numeric entries are treated as missing, which are filled with $opt{MISSN} then set to BAD*. Can specify num of data rows to read from top but not arbitrary range.
 
 *If passed handle, it will not be closed here.
 
@@ -1407,9 +1407,162 @@ sub rtable {
   return wantarray? (@$idv? ($data, $idv, $ido) : ($data, $ido)) : $data;
 }
 
-sub get_data {
-  print STDERR "get_data() deprecated since version 0.4.2. Please use rtable() instead\n";
-  return rtable @_;
+=head2 group_by
+
+Returns pdl reshaped according to the specified factor variable. Most useful when used in conjunction with other threading calculations such as average, stdv, etc. When the factor variable contains unequal number of cases in each level, the returned pdl is padded with bad values to fit the level with the most number of cases. This allows the subsequent calculation (average, stdv, etc) to return the correct results for each level.
+
+Usage:
+
+    # simple case with 1d pdl and equal number of n in each level of the factor
+
+	pdl> p $a = sequence 10
+	[0 1 2 3 4 5 6 7 8 9]
+
+	pdl> p $factor = $a > 4
+	[0 0 0 0 0 1 1 1 1 1]
+
+	pdl> p $a->group_by( $factor )->average
+	[2 7]
+
+    # more complex case with threading and unequal number of n across levels in the factor
+
+	pdl> p $a = sequence 10,2
+	[
+	 [ 0  1  2  3  4  5  6  7  8  9]
+	 [10 11 12 13 14 15 16 17 18 19]
+	]
+
+	pdl> p $factor = qsort $a( ,0) % 3
+	[
+	 [0 0 0 0 1 1 1 2 2 2]
+	]
+
+	pdl> p $a->group_by( $factor )
+	[
+	 [
+	  [ 0  1  2  3]
+	  [10 11 12 13]
+	 ]
+	 [
+	  [  4   5   6 BAD]
+	  [ 14  15  16 BAD]
+	 ]
+	 [
+	  [  7   8   9 BAD]
+	  [ 17  18  19 BAD]
+	 ]
+	]
+
+=cut
+
+*group_by = \&PDL::group_by;
+sub PDL::group_by {
+    my $p = shift;
+    my @factors = @_;
+
+    if ( @factors == 1 ) {
+        my $factor = $factors[0];
+        my $label;
+        if (ref $factor eq 'ARRAY') {
+            $label  = _ordered_uniq($factor);
+            $factor = _array_to_pdl($factor);
+        } else {
+            my $perl_factor = [$factor->list];
+            $label  = _ordered_uniq($perl_factor);
+        }
+
+        my $p_reshaped = _group_by_single_factor( $p, $factor );
+
+        return wantarray? ($p_reshaped, $label) : $p_reshaped;
+    }
+
+    # make sure all are arrays instead of pdls
+    @factors = map { ref($_) eq 'PDL'? [$_->list] : $_ } @factors;
+
+    my (@cells);
+    for my $ele (0 .. $#{$factors[0]}) {
+        my $c = join '_', map { $_->[$ele] } @factors;
+        push @cells, $c;
+    }
+    # get uniq cell labels (ref List::MoreUtils::uniq)
+    my %seen;
+    my @uniq_cells = grep {! $seen{$_}++ } @cells;
+
+    my $flat_factor = _array_to_pdl( \@cells );
+
+    my $p_reshaped = _group_by_single_factor( $p, $flat_factor );
+
+    # get levels of each factor and reshape accordingly
+    my @levels;
+    for (@factors) {
+        my %uniq;
+        @uniq{ @$_ } = ();
+        push @levels, scalar keys %uniq;
+    }
+
+    $p_reshaped = $p_reshaped->reshape( $p_reshaped->dim(0), @levels )->sever;
+
+    # make labels for the returned data structure matching pdl structure
+    my @labels;
+    if (wantarray) {
+        for my $ifactor (0 .. $#levels) {
+            my @factor_label;
+            for my $ilevel (0 .. $levels[$ifactor]-1) {
+                my $i = $ifactor * $levels[$ifactor] + $ilevel;
+                push @factor_label, $uniq_cells[$i];
+            }
+            push @labels, \@factor_label;
+        }
+    }
+
+    return wantarray? ($p_reshaped, \@labels) : $p_reshaped;
+}
+
+# get uniq cell labels (ref List::MoreUtils::uniq)
+sub _ordered_uniq {
+    my $arr = shift;
+
+    my %seen;
+    my @uniq = grep { ! $seen{$_}++ } @$arr;
+
+    return \@uniq;
+}
+
+sub _group_by_single_factor {
+    my $p = shift;
+    my $factor = shift;
+
+    $factor = $factor->squeeze;
+    die "Currently support only 1d factor pdl."
+        if $factor->ndims > 1;
+
+    die "Data pdl and factor pdl do not match!"
+        unless $factor->dim(0) == $p->dim(0);
+
+    # get active dim that will be split according to factor and dims to thread over
+	my @p_threaddims = $p->dims;
+	my $p_dim0 = shift @p_threaddims;
+
+    my $uniq = $factor->uniq;
+
+    my @uniq_ns;
+    for ($uniq->list) {
+        push @uniq_ns, which( $factor == $_ )->nelem;
+    }
+
+    # get number of n's in each group, find the biggest, fit output pdl to this
+    my $uniq_ns = pdl \@uniq_ns;
+	my $max = pdl(\@uniq_ns)->max;
+
+    my $badvalue = int($p->max + 1);
+    my $p_tmp = ones($max, @p_threaddims, $uniq->nelem) * $badvalue;
+    for (0 .. $#uniq_ns) {
+        my $i = which $factor == $uniq($_);
+        $p_tmp->dice_axis(-1,$_)->squeeze->(0:$uniq_ns[$_]-1, ) .= $p($i, );
+    }
+
+    $p_tmp->badflag(1);
+    return $p_tmp->setvaltobad($badvalue);
 }
 
 =head2 which_id
@@ -1445,6 +1598,20 @@ sub which_id {
   }
   return pdl @ind_select;
 }
+
+sub _array_to_pdl {
+  my ($var_ref) = @_;
+
+  my (%level, $l);
+  $l = 0;
+  for (@$var_ref) {
+    !exists $level{$_} and $level{$_} = $l ++;
+  } 
+  return wantarray? (pdl( map { $level{$_} } @$var_ref ), \%level)
+        :            pdl( map { $level{$_} } @$var_ref )
+        ;
+}
+
 
 =head1 SEE ALSO
 

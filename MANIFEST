@@ -1,6 +1,7 @@
 Changes
 MANIFEST
 Makefile.PL
+add_doc.pl
 README
 Stats.pm
 Basic/stats_basic.pp
@@ -23,3 +24,4 @@ t/stats_ts.t
 TS/ts.pp
 TS/Makefile.PL
 META.yml                                 Module meta-data (added by MakeMaker)
+META.json                                Module JSON meta-data (added by MakeMaker)
