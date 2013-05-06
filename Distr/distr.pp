@@ -1025,33 +1025,184 @@ poisson distribution. pmf: f(x;l) = e^(-l) * l^x / x!
 );
 
 pp_def('pmf_poisson',
-  Pars      => 'ushort x(); l(); float+ [o]p()',
+  Pars      => 'x(); l(); float+ [o]p()',
   GenericTypes => [F,D],
   HandleBad => 1,
-  Code      => '
+  Code      => q{
 
-  $p() = exp( -1 * $l()) * pow($l(),$x()) / gsl_sf_fact( $x() );
+  if ($x() < 0) {
+    $p() = 0;
+  }
+  else if ($x() < GSL_SF_FACT_NMAX / 2) {
+    /* Exact formula */
+    $p() = exp( -1 * $l()) * pow($l(),$x()) / gsl_sf_fact( (unsigned int) $x() );
+  }
+  else {
+    /* Use Stirling's approximation. See
+     * http://en.wikipedia.org/wiki/Stirling%27s_approximation
+     */
+    double log_p = $x() - $l() + $x() * log($l() / $x())
+      - 0.5 * log(2*M_PI * $x()) - 1. / 12. / $x()
+      + 1 / 360. / $x()/$x()/$x() - 1. / 1260. / $x()/$x()/$x()/$x()/$x();
+    $p() = exp(log_p);
+  }
 
-  ',
-  BadCode   => '
+  },
+  BadCode   => q{
 
-if ( $ISBAD($x()) || $ISBAD($l()) ) {
-  $SETBAD( $p() );
-}
-else {
-  $p() = exp( -1 * $l()) * pow($l(),$x()) / gsl_sf_fact( $x() );
-}
+  if ( $ISBAD($x()) || $ISBAD($l()) ) {
+    $SETBAD( $p() );
+  }
+  else {
+    if ($x() < 0) {
+      $p() = 0;
+    }
+    else if ($x() < GSL_SF_FACT_NMAX / 2) {
+      /* Exact formula */
+      $p() = exp( -1 * $l()) * pow($l(),$x()) / gsl_sf_fact( (unsigned int) $x() );
+    }
+    else {
+      /* Use Stirling's approximation. See
+       * http://en.wikipedia.org/wiki/Stirling%27s_approximation
+       */
+      double log_p = $x() - $l() + $x() * log($l() / $x())
+        - 0.5 * log(2*M_PI * $x()) - 1. / 12. / $x()
+        + 1 / 360. / $x()/$x()/$x() - 1. / 1260. / $x()/$x()/$x()/$x()/$x();
+      $p() = exp(log_p);
+    }
+  }
 
-  ',
-  Doc      => '
+  },
+  Doc      => q{
 
 =for ref
 
-probability mass function for poisson distribution.
+Probability mass function for poisson distribution. Uses Stirling's formula for x > 85.
 
 =cut
 
-  ',
+  },
+
+);
+
+pp_def('pmf_poisson_stirling',
+  Pars      => 'x(); l(); [o]p()',
+  GenericTypes => [F,D],
+  HandleBad => 1,
+  Code      => q{
+
+  if ($x() < 0) {
+    $p() = 0;
+  }
+  else if ($x() == 0) {
+    $p() = exp(-$l());
+  }
+  else {
+    /* Use Stirling's approximation. See
+     * http://en.wikipedia.org/wiki/Stirling%27s_approximation
+     */
+    double log_p = $x() - $l() + $x() * log($l() / $x())
+      - 0.5 * log(2*M_PI * $x()) - 1. / 12. / $x()
+      + 1 / 360. / $x()/$x()/$x() - 1. / 1260. / $x()/$x()/$x()/$x()/$x();
+    $p() = exp(log_p);
+  }
+
+  },
+  BadCode   => q{
+
+  if ( $ISBAD($x()) || $ISBAD($l()) ) {
+    $SETBAD( $p() );
+  }
+  else if ($x() < 0) {
+    $p() = 0;
+  }
+  else if ($x() == 0) {
+    $p() = exp(-$l());
+  }
+  else {
+    /* Use Stirling's approximation. See
+     * http://en.wikipedia.org/wiki/Stirling%27s_approximation
+     */
+    double log_p = $x() - $l() + $x() * log($l() / $x())
+      - 0.5 * log(2*M_PI * $x()) - 1. / 12. / $x()
+      + 1 / 360. / $x()/$x()/$x() - 1. / 1260. / $x()/$x()/$x()/$x()/$x();
+    $p() = exp(log_p);
+  }
+
+  },
+  Doc      => q{
+
+=for ref
+
+Probability mass function for poisson distribution. Uses Stirling's formula for all values of the input. See http://en.wikipedia.org/wiki/Stirling's_approximation for more info.
+
+=cut
+
+  },
+
+);
+
+
+
+pp_addpm(<<'EOD');
+
+=head2 pmf_poisson_factorial
+
+=for sig
+
+  Signature: ushort x(); l(); float+ [o]p()
+
+=for ref
+
+Probability mass function for poisson distribution. Input is limited to x < 170 to avoid gsl_sf_fact() overflow.
+
+=cut
+
+*pmf_poisson_factorial = \&PDL::pmf_poisson_factorial;
+sub PDL::pmf_poisson_factorial {
+	my ($x, $l) = @_;
+
+	my $pdlx = pdl($x);
+	if (any( $pdlx >= 170 )) {
+		croak "Does not support input greater than 170. Please use pmf_poisson or pmf_poisson_stirling instead.";
+	} else {
+		return _pmf_poisson_factorial(@_);
+	}
+}
+
+EOD
+
+pp_def('_pmf_poisson_factorial',
+  Pars      => 'ushort x(); l(); float+ [o]p()',
+  GenericTypes => [F,D],
+  HandleBad => 1,
+  Code      => q{
+
+  if ($x() < GSL_SF_FACT_NMAX) {
+    $p() = exp( -1 * $l()) * pow($l(),$x()) / gsl_sf_fact( $x() );
+  }
+  else {
+    /* bail out */
+    $p() = 0;
+  }
+
+  },
+  BadCode   => q{
+
+  if ( $ISBAD($x()) || $ISBAD($l()) ) {
+    $SETBAD( $p() );
+  }
+  else {
+    if ($x() < GSL_SF_FACT_NMAX) {
+      $p() = exp( -1 * $l()) * pow($l(),$x()) / gsl_sf_fact( $x() );
+    }
+    else {
+      $p() = 0;
+    }
+  }
+
+  },
+  Doc      => undef,
 
 );
 
@@ -1198,7 +1349,7 @@ PDL::GSL::CDF
 
 =head1 AUTHOR
 
-Copyright (C) 2009 Maggie J. Xiong <maggiexyz users.sourceforge.net>
+Copyright (C) 2009 Maggie J. Xiong <maggiexyz users.sourceforge.net>, David Mertens
 
 All rights reserved. There is no warranty. You are allowed to redistribute this software / documentation as described in the file COPYING in the PDL distribution.
 

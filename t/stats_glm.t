@@ -111,6 +111,30 @@ sub t_ols {
   return $sum;
 }
 
+is( tapprox( t_ols_bad(), 0 ), 1, 'ols with bad value' );
+sub t_ols_bad {
+  my $a = sequence 6;
+  my $b = pdl(0,0,0,1,1,1);
+  $a->setbadat(5);
+  my %m = $a->ols($b, {plot=>0});
+  is( $b->sumover, 3, "ols with bad value didn't change caller value" );
+  ok( $a->check_badflag, "ols with bad value didn't remove caller bad flag" );
+  my %a = (
+    F    => 9,
+    F_df => pdl(1,3),
+    R2   => .75,
+    b    => pdl(2.5, 1),
+    b_se => pdl(0.83333333, 0.52704628),
+    b_t  => pdl(3, 1.8973666),
+    ss_total => 10,
+    ss_model => 7.5,
+  );
+  my $sum;
+  $sum += sum(abs($a{$_} - $m{$_}))
+    for (keys %a);
+  return $sum;
+}
+
 is( tapprox( t_r2_change(), 0 ), 1, 'r2_change' );
 sub t_r2_change {
   my $a = sequence 5, 2;
@@ -228,6 +252,18 @@ is( tapprox( $b_bad->d0(), 6.73011667009256 ), 1 );
 is( tapprox( $b_bad->dm( ones(6) * .5 ), 6.93147180559945 ), 1 );
 is( tapprox( sum($b_bad->dvrs(ones(6) * .5) ** 2), 6.93147180559945 ), 1 );
 
+{
+  my @a = qw( a a a b b b b c c BAD );
+  my $a = effect_code(\@a);
+  my $ans = pdl [
+   [qw( 1   1   1   0   0   0   0  -1  -1 -99 )],
+   [qw( 0   0   0   1   1   1   1  -1  -1 -99 )]
+  ];
+  $ans = $ans->setvaltobad(-99);
+  is( sum(abs(which($a->isbad) - pdl(9,19))), 0, 'effect_code got bad value' );
+  is( tapprox( sum(abs($a - $ans)), 0 ), 1, 'effect_code coded with bad value' );
+}
+
 is( tapprox( t_effect_code_w(), 0 ), 1, 'effect_code_w' );
 sub t_effect_code_w {
   my @a = qw( a a a b b b b c c c );
@@ -243,6 +279,7 @@ sub t_anova {
   my $c = $d % 2;
   $d = lvalue_assign_detour( $d, 20, 10 );
   my %m = $d->anova(\@a, $b, $c, {IVNM=>[qw(A B C)], plot=>0});
+# print "$_\t$m{$_}\n" for (sort keys %m);
   my $ans_F = pdl(165.252100840336, 0.0756302521008415);
   my $ans_m = pdl([qw(8 18 38 53)], [qw(8 23 38 53)]);
   return  sum( pdl( @m{'| A | F', '| A ~ B ~ C | F'} ) - $ans_F )
@@ -264,8 +301,8 @@ sub t_anova_1way {
   ;
 }
 
-is( tapprox( t_anova_bad(), 0 ), 1, 'anova_bad' );
-sub t_anova_bad {
+is( tapprox( t_anova_bad_dv(), 0 ), 1, 'anova_3w bad dv' );
+sub t_anova_bad_dv {
   my $d = sequence 60;
   $d = lvalue_assign_detour( $d, 20, 10 );
   $d->setbadat(1);
@@ -276,10 +313,30 @@ sub t_anova_bad {
   my %m = $d->anova(\@a, $b, $c, {IVNM=>[qw(A B C)], plot=>0, v=>0});
   my $ans_F = pdl( 150.00306433446, 0.17534855325553 );
   my $ans_m = pdl([qw( 4 22 37 52 )], [qw( 10 22 37 52 )]);
-  my $ans_se = pdl([qw( 0 6 3 6 )], [qw( 1.7320508 3 6 3 )]);
+  my $ans_se = pdl([qw( 0 6 1.7320508 3.4641016 )], [qw( 3 3 3.4641016 1.7320508 )]);
+
+  return sum(abs(pdl( @m{'| A | F', '| A ~ B ~ C | F'} ) - $ans_F))
+       + sum(abs($m{'# A ~ B ~ C # m'}->(,1,)->squeeze - $ans_m))
+       + sum(abs($m{'# A ~ B ~ C # se'}->(,1,)->squeeze - $ans_se))
+  ;
+}
+
+is( tapprox( t_anova_bad_dv_iv(), 0 ), 1, 'anova_3w bad dv iv' );
+sub t_anova_bad_dv_iv {
+  my $d = sequence 63;
+  my @a = map {$a = $_; map { $a } 0..14 } qw(a b c d);
+  push @a, undef, qw( b c );
+  my $b = $d % 3;
+  my $c = $d % 2;
+  $d = lvalue_assign_detour( $d, 20, 10 );
+  $d->setbadat(62);
+  $b->setbadat(61);
+  my %m = $d->anova(\@a, $b, $c, {IVNM=>[qw(A B C)], plot=>0});
+# print "$_\t$m{$_}\n" for (sort keys %m);
+  my $ans_F = pdl(165.252100840336, 0.0756302521008415);
+  my $ans_m = pdl([qw(8 18 38 53)], [qw(8 23 38 53)]);
   return  sum( pdl( @m{'| A | F', '| A ~ B ~ C | F'} ) - $ans_F )
         + sum( $m{'# A ~ B ~ C # m'}->(,2,)->squeeze - $ans_m )
-        + sum( $m{'# A ~ B ~ C # se'}->(,2,)->squeeze - $ans_se )
   ;
 }
 
@@ -310,8 +367,8 @@ sub t_anova_rptd_1way {
   ;
 }
 
-is( tapprox( t_anova_rptd_2way_bad(), 0 ), 1, 'anova_rptd_2w_bad' );
-sub t_anova_rptd_2way_bad {
+is( tapprox( t_anova_rptd_2way_bad_dv(), 0 ), 1, 'anova_rptd_2w bad dv' );
+sub t_anova_rptd_2way_bad_dv {
   my $d = pdl qw( 3 2 1 5 2 1 5 3 1 4 1 2 3 5 5 3 4 2 1 5 4 3 2 2);
   $d = $d->setbadat(5);
   my $s = sequence(4)->dummy(1,6)->flat;
@@ -321,7 +378,30 @@ sub t_anova_rptd_2way_bad {
   my $b = (sequence(8) > 3)->dummy(1,3)->flat;
 # [0 0 0 0 1 1 1 1 0 0 0 0 1 1 1 1 0 0 0 0 1 1 1 1]
   my %m = $d->anova_rptd($s, $a, $b, {ivnm=>['a','b'],plot=>0, v=>0});
-#print "$_\t$m{$_}\n" for (sort keys %m);
+# print "$_\t$m{$_}\n" for (sort keys %m);
+  my $ans_a_F  = 0.351351351351351;
+  my $ans_a_ms = 0.722222222222222;
+  my $ans_ab_F = 5.25;
+  my $ans_ab_m = pdl(qw( 3  1.3333333  3.3333333 3.3333333  3.6666667  2.6666667  ))->reshape(3,2);
+  return  ($m{'| a | F'} - $ans_a_F)
+        + ($m{'| a | ms'} - $ans_a_ms)
+        + ($m{'| a ~ b | F'} - $ans_ab_F)
+        + sum( $m{'# a ~ b # m'} - $ans_ab_m )
+  ;
+}
+
+is( tapprox( t_anova_rptd_2way_bad_iv(), 0 ), 1, 'anova_rptd_2w bad iv' );
+sub t_anova_rptd_2way_bad_iv {
+  my $d = pdl qw( 3 2 1 5 2 1 5 3 1 4 1 2 3 5 5 3 4 2 1 5 4 3 2 2);
+  my $s = sequence(4)->dummy(1,6)->flat;
+# [0 1 2 3 0 1 2 3 0 1 2 3 0 1 2 3 0 1 2 3 0 1 2 3]
+  my $a = qsort sequence(24) % 3;
+  $a = $a->setbadat(5);
+# [0 0 0 0 0 0 0 0 1 1 1 1 1 1 1 1 2 2 2 2 2 2 2 2]
+  my $b = (sequence(8) > 3)->dummy(1,3)->flat;
+# [0 0 0 0 1 1 1 1 0 0 0 0 1 1 1 1 0 0 0 0 1 1 1 1]
+  my %m = $d->anova_rptd($s, $a, $b, {ivnm=>['a','b'],plot=>0, v=>0});
+# print "$_\t$m{$_}\n" for (sort keys %m);
   my $ans_a_F  = 0.351351351351351;
   my $ans_a_ms = 0.722222222222222;
   my $ans_ab_F = 5.25;
@@ -343,7 +423,7 @@ sub t_anova_rptd_3way {
   my $b = sequence(2)->dummy(0,3)->flat->dummy(1,8)->flat;
   my $c = sequence(3)->dummy(1,16)->flat;
   my %m = $d->anova_rptd($s, $a, $b, $c, {ivnm=>['a','b', 'c'],plot=>0});
-#print "$_\t$m{$_}\n" for (sort keys %m);
+# print "$_\t$m{$_}\n" for (sort keys %m);
   my $ans_a_F  = 0.572519083969459;
   my $ans_a_ms = 0.520833333333327;
   my $ans_ac_F = 3.64615384615385;
@@ -361,7 +441,7 @@ sub t_anova_rptd_3way {
   ;
 }
 
-is( tapprox( t_anova_rptd_mixed(), 0 ), 1, 'anova_rptd_mixed' );
+is( tapprox( t_anova_rptd_mixed(), 0 ), 1, 'anova_rptd mixed' );
 sub t_anova_rptd_mixed {
   my $d = pdl qw( 3 2 1 5 2 1 5 3 1 4 1 2 3 5 5 3 4 2 1 5 4 3 2 2);
   my $s = sequence(4)->dummy(1,6)->flat;
@@ -371,7 +451,39 @@ sub t_anova_rptd_mixed {
   my $b = (sequence(8) > 3)->dummy(1,3)->flat;
 # [0 0 0 0 1 1 1 1 0 0 0 0 1 1 1 1 0 0 0 0 1 1 1 1]
   my %m = $d->anova_rptd($s, $a, $b, {ivnm=>['a','b'],btwn=>[1],plot=>0, v=>0});
-#print "$_\t$m{$_}\n" for (sort keys %m);
+# print "$_\t$m{$_}\n" for (sort keys %m);
+  my $ans_a_F  = 0.0775862068965517;
+  my $ans_a_ms = 0.125;
+  my $ans_ab_F = 1.88793103448276;
+  my $ans_b_F  = 0.585657370517928;
+  my $ans_b_ems = 3.48611111111111;
+  my $ans_ab_se = ones(3,2) * 0.63464776;
+  return  ($m{'| a | F'} - $ans_a_F)
+        + ($m{'| a | ms'} - $ans_a_ms)
+        + ($m{'| a ~ b | F'} - $ans_ab_F)
+        + ($m{'| b | F'} - $ans_b_F)
+        + ($m{'| b || err ms'} - $ans_b_ems)
+        + sum( $m{'# a ~ b # se'} - $ans_ab_se )
+  ;
+}
+
+is( tapprox( t_anova_rptd_mixed_bad(), 0 ), 1, 'anova_rptd mixed bad' );
+sub t_anova_rptd_mixed_bad {
+  my $d = pdl qw( 3 2 1 5 2 1 5 3 1 4 1 2 3 5 5 3 4 2 1 5 4 3 2 2 1 1 1 1 );
+  my $s = sequence(4)->dummy(1,6)->flat;
+# [0 1 2 3 0 1 2 3 0 1 2 3 0 1 2 3 0 1 2 3 0 1 2 3]
+# add subj 4 at the end
+  $s = $s->append(ones(4) * 4);
+  my $a = qsort sequence(24) % 3;
+# [0 0 0 0 0 0 0 0 1 1 1 1 1 1 1 1 2 2 2 2 2 2 2 2]
+  $a = $a->append(zeroes(4));
+  my $b = (sequence(8) > 3)->dummy(1,3)->flat;
+# [0 0 0 0 1 1 1 1 0 0 0 0 1 1 1 1 0 0 0 0 1 1 1 1]
+  $b = $b->append(zeroes(4));
+  # any missing value causes all data from the subject (4) to be dropped
+  $b->setbadat(-1);
+  my %m = $d->anova_rptd($s, $a, $b, {ivnm=>['a','b'],btwn=>[1],plot=>0, v=>0});
+# print "$_\t$m{$_}\n" for (sort keys %m);
   my $ans_a_F  = 0.0775862068965517;
   my $ans_a_ms = 0.125;
   my $ans_ab_F = 1.88793103448276;
