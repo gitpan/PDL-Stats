@@ -4,7 +4,7 @@
       "Maggie J. Xiong  <maggiexyz users.sourceforge.net>"
    ],
    "dynamic_config" : 1,
-   "generated_by" : "ExtUtils::MakeMaker version 6.72, CPAN::Meta::Converter version 2.132140",
+   "generated_by" : "ExtUtils::MakeMaker version 6.64, CPAN::Meta::Converter version 2.112621",
    "license" : [
       "perl_5"
    ],
@@ -22,21 +22,21 @@
    "prereqs" : {
       "build" : {
          "requires" : {
-            "ExtUtils::MakeMaker" : "0"
+            "ExtUtils::MakeMaker" : 0
          }
       },
       "configure" : {
          "requires" : {
-            "ExtUtils::MakeMaker" : "0"
+            "ExtUtils::MakeMaker" : 0
          }
       },
       "runtime" : {
          "requires" : {
-            "PDL" : "v2.4.4",
-            "Test::More" : "0"
+            "PDL" : 0,
+            "Test::More" : 0
          }
       }
    },
-   "release_status" : "stable",
-   "version" : "v0.6.4"
+   "release_status" : "testing",
+   "version" : "v0.6.4_1"
 }
