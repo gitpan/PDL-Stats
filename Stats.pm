@@ -8,11 +8,11 @@ PDL::Stats - a collection of statistics modules in Perl Data Language, with a qu
 
 =head1 VERSION
 
-Version 0.6.4_1
+Version 0.6.5
 
 =cut
 
-$VERSION = '0.6.4_1';
+$VERSION = '0.6.5';
 
 $PDL::onlinedoc->scan(__FILE__) if $PDL::onlinedoc;
 
@@ -257,7 +257,7 @@ EOD
 
 ~~~~~~~~~~~~ ~~~~~ ~~~~~~~~ ~~~~~ ~~~ `` ><(((">
 
-Copyright (C) 2009-2012 Maggie J. Xiong <maggiexyz users.sourceforge.net>
+Copyright (C) 2009-2013 Maggie J. Xiong <maggiexyz users.sourceforge.net>
 
 All rights reserved. There is no warranty. You are allowed to redistribute this software / documentation as described in the file COPYING in the PDL distribution.
 
